@@ -1,4 +1,4 @@
-#ReactionAPI
+# ReactionAPI
 ReactionAPI is a modding API for "The Binding of Isaac: Rebirth". Its purpose is to allow modders to easily obtain information on the current Collectibles present in the room through the provided Interface.
 
 This mod can be easily installed by copying the contents of the repository into a folder within the 'mods' folder located in the same directory as the executable, or by subscribing to the mod on the [Steam Workshop](https://steamcommunity.com/app/250900/workshop/).

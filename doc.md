@@ -1,9 +1,9 @@
-#Documentation
-##ReactionAPI Objects:
+# Documentation
+## ReactionAPI Objects:
 
-###Quality Status:
+### Quality Status:
 
-+ #####cQualityStatus
++ ##### cQualityStatus
 
 A matrix containing the Quality Status of the room based on the visibility and on the filter applied to the pickups.
 
@@ -27,15 +27,15 @@ Bit 6: QUALITY 4 item is present
 
 This table can be obtained through the [ReactionAPI.Interface.cGetQualityStatus()](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#cGetQualityStatus) function.
 
-+ #####cBestQuality
++ ##### cBestQuality
 
 A derivative of [cQualityStatus](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#cQualityStatus) that gives the highest quality from the bit flag. Provides a simpler way to obtain the most commonly requested information out of the QualityStatus without the need to perform any bitwise operations.
 
 This variable can be obtained using the [ReactionAPI.Interface.cGetBestQuality()](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#cGetBestQuality) function.
 
-###Collectible Data:
+### Collectible Data:
 
-+ #####collectiblesInRoom
++ ##### collectiblesInRoom
 
 A table listing all the IDs of every Pedestal with the relative data formatted in the form of a table, see [cData](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#cData) for more information.
                 
@@ -47,7 +47,7 @@ EntityPickupID [Key]  | cData (table)
 
 This table can be obtained through the [ReactionAPI.Interface.GetCollectibleData()](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#GetCollectibleData) function.
 
-+ #####cData
++ ##### cData
 
 A table listing the IDs of all the Collectibles present in the Pedestal Data, as well as their Cycle Order.
 
@@ -62,7 +62,7 @@ Due to the way this table has been implemented, in the event of duplicate Collec
 
 This table is part of [collectiblesInRoom](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#collectiblesInRoom).
 
-+ #####newCollectibles
++ ##### newCollectibles
 
 A table listing the IDs of all the newly recorded Collectibles in collectiblesInRoom in this specific UPDATE cycle.
                 
@@ -76,7 +76,7 @@ This table is reset after the end of every [MC_POST_UPDATE](https://wofsauge.git
 
 This table can be obtained through the [ReactionAPI.Interface.GetCollectibleData()](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#GetCollectibleData) function.
 
-+ #####blindPedestals
++ ##### blindPedestals
 
 A table listing all the IDs of every Blind Pedestal
                 
@@ -88,7 +88,7 @@ EntityPickupID [Key]  | Entity ([EntityPickup class](https://wofsauge.github.io/
 
 This table can be obtained through the [ReactionAPI.Interface.GetCollectibleData()](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#GetCollectibleData) function.
 
-+ #####shopItems
++ ##### shopItems
 
 A table listing all the IDs of every Shop Item
                 
@@ -100,9 +100,9 @@ EntityPickupID [Key]  | Entity ([EntityPickup class](https://wofsauge.github.io/
 
 This table can be obtained through the [ReactionAPI.Interface.GetCollectibleData()](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#GetCollectibleData) function.
 
-###Blind Handlers:
+### Blind Handlers:
 
-+ #####IsCollectibleBlind
++ ##### IsCollectibleBlind
 
 A collection of functions that get executed on every MC_POST_PICKUP_UPDATE, to determine the visibility of the current pedestal.
 
@@ -112,7 +112,7 @@ If your mod adds a new type of condition where a pickup is not supposed to be vi
 
 ⚠️***NOTE:***  Not every function inside the collection is going to be executed, if any function returns true then the remaining functions will be skipped entirely.
 
-+ #####IsGloballyBlind
++ ##### IsGloballyBlind
 
 A collection of functions that get executed at the end of every MC_POST_UPDATE, to determine whether or not all pedestals should be considered blind (this is done to avoid bottlenecks caused by the multiple executions of the **IsCollectibleBlind** functions each frame).
 
@@ -120,7 +120,7 @@ By default there is a single function that checks if the current floor has Curse
 
 If your mod adds a new type of condition where all collectibles are certainly going to be evaluated as Blind, then you can add a function to the collection using the [ReactionAPI.Interface.AddBlindCondition()](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#AddBlindCondition) function.
 
-#####IsCurseOfBlindNotGlobal
+##### IsCurseOfBlindNotGlobal
 
 This object stores all requests made to not allow the default **IsGloballyBlind** function to ever evaluate as true.
 
@@ -128,7 +128,7 @@ A request should only be made if your mod makes certain pedestals visible even w
 
 You can add/remove a request by using the [ReactionAPI.Interface.SetIsCurseOfBlindGlobal()](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#SetIsCurseOfBlindGlobal) function.
 
-#####ShouldIsBlindPedestalNotBeOptimized
+##### ShouldIsBlindPedestalNotBeOptimized
 
 This object stores all requests made to not allow any kind of optimization on the execution of the default **IsCollectibleBlind** function.
 
@@ -138,9 +138,9 @@ A request should only be made if your mod creates Default Blind Pedestals (Pedes
 
 You can add/remove a request by using the [ReactionAPI.Interface.ShouldIsBlindPedestalBeOptimized()](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#ShouldIsBlindPedestalBeOptimized) function.
 
-##ReactionAPI Functions:
-###Interface:
-+ #####cGetQualityStatus
+## ReactionAPI Functions:
+### Interface:
++ ##### cGetQualityStatus
                 
 ```lua
 ReactionAPI.Interface.cGetQualityStatus(Visibility, Filter)
@@ -165,7 +165,7 @@ If neither is set then you will get the entire **cQualityStatus matrix**.
 
 ⚠️***NOTE:*** This function should be called during **MC_POST_UPDATE**, with a priority that is not **IMPORTANT** or **LATE**. Calling this function anywhere else might lead to the retrieval of incorrect data.
 
-+ #####cGetBestQuality
++ ##### cGetBestQuality
                 
 ```lua
 ReactionAPI.Interface.cGetBestQuality(Visibility)
@@ -183,7 +183,7 @@ ReactionAPI.Interface.cGetBestQuality(Visibility)
 
 ⚠️***NOTE:*** This function should be called during **MC_POST_UPDATE**, with a priority that is not **IMPORTANT** or **LATE**. Calling this function anywhere else might lead to the retrieval of incorrect data.
 
-+ #####GetCollectibleData
++ ##### GetCollectibleData
                 
 ```lua
 ReactionAPI.Interface.GetCollectibleData()
@@ -193,7 +193,7 @@ ReactionAPI.Interface.GetCollectibleData()
 
 ⚠️***NOTE:*** This function should be called during **MC_POST_UPDATE**, with a priority that is not **IMPORTANT** or **LATE**. Calling this function anywhere else might lead to the retrieval of incorrect data.
 
-+ #####cCheckForPresence/Absence
++ ##### cCheckForPresence/Absence
                 
 A group of functions meant to simplify the act of Checking the Presence or Absence of certain qualities in the [cQualityStatus](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#cQualityStatus) bit flag without the need to Get the variable or perform operations on it.
                 
@@ -219,7 +219,7 @@ ReactionAPI.Interface.cCheckForAbsence(AbsencePartition, Visibility, Filter, All
 
 ⚠️***NOTE:*** This function should be called during **MC_POST_UPDATE**, with a priority that is not **IMPORTANT** or **LATE**. Calling this function anywhere else might lead to the retrieval of incorrect data.
 
-+ #####AddBlindCondition
++ ##### AddBlindCondition
                 
 ```lua
 ReactionAPI.Interface.AddBlindCondition(Function, Global)
@@ -233,7 +233,7 @@ If ***Global*** Is set to false then the [EntityPickup](https://wofsauge.github.
 
 ⚠️***NOTE:*** After any of the functions return true the remaining ones will be skipped entirely and not be executed.
 
-+ #####SetIsCurseOfBlindGlobal
++ ##### SetIsCurseOfBlindGlobal
                 
 ```lua
 ReactionAPI.Interface.SetIsCurseOfBlindGlobal(Answer, TicketID)
@@ -248,7 +248,7 @@ Given that the function is meant to prevent huge lag spikes caused by the evalua
 
 ℹ️ ***INFO:*** You can set ***Answer*** as true even if you have yet to add a ticket to the table, and you can set it to false even if there already is a ticket with that ID, as such it is unnecessary to create checks to see if a ticket is present or not within the table.
 
-+ #####ShouldIsBlindPedestalBeOptimized
++ ##### ShouldIsBlindPedestalBeOptimized
                 
 ```lua
 ReactionAPI.Interface.ShouldIsBlindPedestalBeOptimized(Answer, TicketID)
@@ -267,7 +267,7 @@ Given that the optimization is meant to prevent huge lag spikes caused by the ev
 
 ⚠️***NOTE:*** Given what was noted earlier it is important to test whether or not a mod needs to add a ticket, with the setting on all the time, as there is no difference when it is off.
 
-+ #####RequestReset
++ ##### RequestReset
                 
 ```lua
 ReactionAPI.Interface.RequestReset(Global, EntityIDs)
@@ -284,14 +284,14 @@ When performing a reset all data related to the EntityIDs will be deleted and re
 
 ⚠️***NOTE:*** A Reset will cause previously known collectibles to be treated as new, this might be intentional in the case of non Global Resets, but in the case of Global Reset this will always cause an inconsistency, unless necessary for every collectible, Global Resets should be used sparingly.
 
-###Utilities:
+### Utilities:
 
 These are a collection of utility functions that are used in the implementation of the mod, and are made globally available to everyone who whishes to use them.
 However it is not suggested to impose ReactionAPI as a requirement for your mod to work if these are the only functions being used. Instead copy the contents of *reactionAPI_scripts\functions\utilities.lua* inside of your own mod, and replace the ReactionAPI mod reference with that of your mod.
 
-+ #####GetTableLength
++ ##### GetTableLength
 
-A function that can get the number of entries in a table similar to #table, but it works even with non numerical and non contiguous indices.
+A function that can get the number of entries in a table similar to the # operator, but it works even with non numerical and non contiguous indices.
 
                 
 ```lua
@@ -299,7 +299,7 @@ ReactionAPI.Utilities.GetTableLength(Table)
 ```
                 
 
-+ #####AnyPlayerHasCollectible
++ ##### AnyPlayerHasCollectible
 
 An equivalent of the EntityPlayer:HasCollectible() function that however queries every EntityPlayer currently in the game.
 
@@ -309,7 +309,7 @@ ReactionAPI.Utilities.AnyPlayerHasCollectible(CollectibleID, IgnoreModifiers)
 ```
                 
 
-+ #####GetMaxCollectibleID
++ ##### GetMaxCollectibleID
 
 A function that returns the highest valid CollectibleID / CollectibleType, if an ID is higher than this number then that item is a Glitched Item.
 
