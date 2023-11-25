@@ -36,6 +36,7 @@ local requestedPickupResets = {} -- API EXPOSED -- WRITE ONLY
 local poofPositions = {}
 local cachedOptionGroup = {}
 local wipedOptionGroups = {}
+local roomPedestals = {}
 local blindPedestals = {} -- API EXPOSED -- READ ONLY
 local shopItems = {} -- API EXPOSED -- READ ONLY
 local newCollectibles = {[visible] = {}, [blind] = {}} -- API EXPOSED -- READ ONLY
@@ -367,6 +368,7 @@ end --Reset Variables that get reset at the end of every Update cycle
 local function ResetUpdatePersistentVariables() --FullReset()
     cachedOptionGroup = {}
     wipedOptionGroups = {}
+    roomPedestals = {}
     blindPedestals = {}
     shopItems = {}
     collectiblesInRoom = {}
@@ -395,9 +397,10 @@ local function HandleRequestedGlobalResets() --OnCollectibleUpdate()
     end
 end
 
-local function HandleShopItems() --OnPostUpdate()
-    for pickupID, entity in pairs(shopItems) do
+local function HandleNonExistentPedestals() --OnPostUpdate()
+    for pickupID, entity in pairs(roomPedestals) do
         if not entity:Exists() or IsTouchedCollectible(entity) then
+            roomPedestals[pickupID] = nil
             shopItems[pickupID] = nil
             collectiblesInRoom[pickupID] = nil
             blindPedestals[pickupID] = nil
@@ -416,6 +419,7 @@ end
 
 local function HandleRequestedPickupResets() --OnLatePostUpdate()
     for _, pickupID in pairs(requestedPickupResets) do
+        roomPedestals[pickupID] = nil
         collectiblesInRoom[pickupID] = nil
         blindPedestals[pickupID] = nil
         shopItems[pickupID] = nil
@@ -448,11 +452,16 @@ local function OnCollectibleUpdate(_, EntityPickup)
         if isGrouped then
             wipedOptionGroups[group] = true
         end
+        roomPedestals[EntityPickup.Index] = nil
         collectiblesInRoom[EntityPickup.Index] = nil
+        shopItems[EntityPickup.Index] = nil
+        blindPedestals[EntityPickup.Index] = nil
         return
     end
 
     local isBlind = nil --NOT INITIALIZED YET
+
+    roomPedestals[EntityPickup.Index] = EntityPickup
 
     if EntityPickup:IsShopItem() then
         shopItems[EntityPickup.Index] = EntityPickup
@@ -479,7 +488,7 @@ end
 
 local function OnPostUpdate()
 --    Isaac.DebugString("PostUpdate")
-    HandleShopItems()
+    HandleNonExistentPedestals()
     SetQualityStatus()
     HandleOverwriteFunctions()
     SetAbsoluteQualityStatus()
