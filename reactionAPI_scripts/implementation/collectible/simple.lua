@@ -6,10 +6,11 @@
 
 local evaluateGlobally = true
 local evaluatePerCollectible = false
-local visible = false
-local blind = true
-local newPickupsOnly = true
-local everyPickup = false
+local visible = ReactionAPI.Context.Visibility.VISIBLE
+local blind = ReactionAPI.Context.Visibility.BLIND
+local absolute = ReactionAPI.Context.Visibility.ABSOLUTE
+local newPickupsOnly = ReactionAPI.Context.Filter.NEW
+local everyPickup = ReactionAPI.Context.Filter.ALL
 local global = true
 
 -- CONSTANTS
@@ -35,9 +36,9 @@ local requestedPickupResets = {} -- API EXPOSED -- WRITE ONLY
 local poofPositions = {}
 local cachedOptionGroup = {}
 local wipedOptionGroups = {}
-local blindPedestals = {}
-local shopItems = {}
-local newCollectibles = {[visible] = {}, [blind] = {}}
+local blindPedestals = {} -- API EXPOSED -- READ ONLY
+local shopItems = {} -- API EXPOSED -- READ ONLY
+local newCollectibles = {[visible] = {}, [blind] = {}} -- API EXPOSED -- READ ONLY
 
 -- MAIN
 
@@ -45,12 +46,15 @@ local collectiblesInRoom = {} -- API EXPOSED -- READ ONLY
 
 local cQualityStatus = { -- API EXPOSED --READ ONLY
     [visible] = {[newPickupsOnly] = 0x00, [everyPickup] = 0x00},
-    [blind] = {[newPickupsOnly] = 0x00, [everyPickup] = 0x00}
+    [blind] = {[newPickupsOnly] = 0x00, [everyPickup] = 0x00},
+    [absolute] = {[newPickupsOnly] = 0x00, [everyPickup] = 0x00}
 }
 
-local cBestVisibleQuality = ReactionAPI.QualityStatus.NO_ITEMS -- API EXPOSED -- READ ONLY
-local cBestBlindQuality = ReactionAPI.QualityStatus.NO_ITEMS -- API EXPOSED -- READ ONLY
-local cBestAbsoluteQuality = ReactionAPI.QualityStatus.NO_ITEMS -- API EXPOSED -- READ ONLY
+local cBestQuality = { -- API EXPOSED -- READ ONLY
+    [visible] = ReactionAPI.QualityStatus.NO_ITEMS,
+    [blind] = ReactionAPI.QualityStatus.NO_ITEMS,
+    [absolute] = ReactionAPI.QualityStatus.NO_ITEMS
+}
 
 -- CUSTOM RULES
 
@@ -80,19 +84,15 @@ local opCodes = {
 
 -- API
 
-function ReactionAPI:GetCollectibleBestQuality(Type)
-    if Type == ReactionAPI.Context.Type.VISIBLE then
-        return cBestVisibleQuality
-    elseif Type == ReactionAPI.Context.Type.BLIND then
-        return cBestBlindQuality
-    elseif Type == ReactionAPI.Context.Type.ABSOLUTE then
-        return cBestAbsoluteQuality
+function ReactionAPI.GetCollectibleBestQuality(Visibility)
+    if Visibility ~= nil then
+        return cBestQuality[Visibility]
     else
-        return cBestVisibleQuality, cBestBlindQuality, cBestAbsoluteQuality
+        return cBestQuality
     end
 end
 
-function ReactionAPI:GetCollectibleQualityStatus(IsBlind, NewOnly)
+function ReactionAPI.GetCollectibleQualityStatus(IsBlind, NewOnly)
     if IsBlind ~= nil then
         if NewOnly ~= nil then
             return cQualityStatus[IsBlind][NewOnly]
@@ -100,23 +100,23 @@ function ReactionAPI:GetCollectibleQualityStatus(IsBlind, NewOnly)
         return cQualityStatus[IsBlind]
     else
         if NewOnly ~= nil then
-            local convertedOutput = {[visible] = cQualityStatus[visible][NewOnly], [blind] = cQualityStatus[blind][NewOnly]}
+            local convertedOutput = {[visible] = cQualityStatus[visible][NewOnly], [blind] = cQualityStatus[blind][NewOnly], [absolute] = cQualityStatus[absolute][NewOnly]}
             return convertedOutput
         end
     end
     return cQualityStatus
 end
 
-function ReactionAPI:GetCollectibleData() --NEW
+function ReactionAPI.GetCollectibleData()
     return collectiblesInRoom, newCollectibles, blindPedestals, shopItems
 end
 
-function ReactionAPI:CheckForCollectiblePresence(IsBlind, CheckNewOnly, PresencePartition, AllPresent)
+function ReactionAPI.CheckForCollectiblePresence(PresencePartition, IsBlind, CheckNewOnly, AllPresent)
     IsBlind = false or IsBlind
     CheckNewOnly = false or CheckNewOnly
     AllPresent = false or AllPresent
     if PresencePartition <= 0x00 or PresencePartition >= 1 << (ReactionAPI.QualityStatus.QUALITY_4 + 2) then
-        local errorMessage = "[ERROR in ReactionAPI:CheckForCollectiblePresence]: an invalid PresencePartition was passed"
+        local errorMessage = "[ERROR in ReactionAPI.CheckForCollectiblePresence]: an invalid PresencePartition was passed"
         Isaac.ConsoleOutput(errorMessage)
         Isaac.DebugString(errorMessage)
         return
@@ -129,12 +129,12 @@ function ReactionAPI:CheckForCollectiblePresence(IsBlind, CheckNewOnly, Presence
     end
 end
 
-function ReactionAPI:CheckForCollectibleAbsence(IsBlind, CheckNewOnly, AbsencePartition, AllAbsent)
+function ReactionAPI.CheckForCollectibleAbsence(AbsencePartition, IsBlind, CheckNewOnly, AllAbsent)
     IsBlind = false or IsBlind
     CheckNewOnly = false or CheckNewOnly
     AllAbsent = AllAbsent == nil and true or AllAbsent
     if AbsencePartition <= 0x00 or AbsencePartition >= 1 << (ReactionAPI.QualityStatus.QUALITY_4 + 2) then
-        local errorMessage = "[ERROR in ReactionAPI:CheckForCollectibleAbsence]: an invalid AbsencePartition was passed"
+        local errorMessage = "[ERROR in ReactionAPI.CheckForCollectibleAbsence]: an invalid AbsencePartition was passed"
         Isaac.ConsoleOutput(errorMessage)
         Isaac.DebugString(errorMessage)
         return
@@ -147,10 +147,10 @@ function ReactionAPI:CheckForCollectibleAbsence(IsBlind, CheckNewOnly, AbsencePa
     end
 end
 
-function ReactionAPI:AddBlindCondition(Function, Global)
+function ReactionAPI.AddBlindCondition(Function, Global)
     Global = Global == nil and true or Global
     if type(Function) ~= "function" then
-        local errorMessage = "[ERROR in ReactionAPI:AddBlindCondition]: no Function was passed"
+        local errorMessage = "[ERROR in ReactionAPI.AddBlindCondition]: no Function was passed"
         Isaac.ConsoleOutput(errorMessage)
         Isaac.DebugString(errorMessage)
         return
@@ -163,10 +163,10 @@ function ReactionAPI:AddBlindCondition(Function, Global)
     end
 end
 
-function ReactionAPI:SetIsCurseOfBlindGlobal(IsGlobal, TicketID)
+function ReactionAPI.SetIsCurseOfBlindGlobal(IsGlobal, TicketID)
     IsGlobal = IsGlobal == nil and true or IsGlobal
     if TicketID == nil then
-        local errorMessage = "[ERROR in ReactionAPI:SetIsCurseOfBlindGlobal]: no TicketID was passed"
+        local errorMessage = "[ERROR in ReactionAPI.SetIsCurseOfBlindGlobal]: no TicketID was passed"
         Isaac.ConsoleOutput(errorMessage)
         Isaac.DebugString(errorMessage)
         return
@@ -181,10 +181,10 @@ function ReactionAPI:SetIsCurseOfBlindGlobal(IsGlobal, TicketID)
     end
 end
 
-function ReactionAPI:ShouldIsBlindPedestalBeOptimized(Answer, TicketID)
+function ReactionAPI.ShouldIsBlindPedestalBeOptimized(Answer, TicketID)
     Answer = Answer == nil and true or Answer
     if TicketID == nil then
-        local errorMessage = "[ERROR in ReactionAPI:ShouldIsBlindPedestalBeOptimized]: no TicketID was passed"
+        local errorMessage = "[ERROR in ReactionAPI.ShouldIsBlindPedestalBeOptimized]: no TicketID was passed"
         Isaac.ConsoleOutput(errorMessage)
         Isaac.DebugString(errorMessage)
         return
@@ -199,10 +199,10 @@ function ReactionAPI:ShouldIsBlindPedestalBeOptimized(Answer, TicketID)
     end
 end
 
-function ReactionAPI:RequestReset(Global, EntityIDs) --MODIFIED
+function ReactionAPI.RequestReset(Global, EntityIDs)
     Global = Global == nil and true or Global
     if not Global and type(EntityIDs) ~= "table" then
-        local errorMessage = "[ERROR in ReactionAPI:RequestReset]: no EntityIDs were passed on a non global request"
+        local errorMessage = "[ERROR in ReactionAPI.RequestReset]: no EntityIDs were passed on a non global request"
         Isaac.ConsoleOutput(errorMessage)
         Isaac.DebugString(errorMessage)
         return
@@ -230,7 +230,7 @@ local function IsCurseOfBlind()
     return (Game():GetLevel():GetCurses() & LevelCurse.CURSE_OF_BLIND ~= 0) and IsCurseOfBlindGlobal()
 end
 
-ReactionAPI:AddBlindCondition(IsCurseOfBlind, evaluateGlobally)
+ReactionAPI.AddBlindCondition(IsCurseOfBlind, evaluateGlobally)
 
 local function ShouldIsBlindPedestalBeOptimized()
     for _, _ in pairs(shouldIsBlindPedestalNotOptimize_Tickets) do
@@ -260,7 +260,7 @@ local function IsBlindPedestal(EntityPickup)
     return true
 end
 
-ReactionAPI:AddBlindCondition(IsBlindPedestal, evaluatePerCollectible)
+ReactionAPI.AddBlindCondition(IsBlindPedestal, evaluatePerCollectible)
 
 -- CHECKS
 
@@ -303,7 +303,7 @@ local function EvaluateGloballyBlindConditions() --OnLatePostUpdate()
                 return
             else
                 globallyBlind = true
-                ReactionAPI:RequestReset(global)
+                ReactionAPI.RequestReset(global)
                 return
             end
         end
@@ -312,7 +312,7 @@ local function EvaluateGloballyBlindConditions() --OnLatePostUpdate()
         return
     else
         globallyBlind = false
-        ReactionAPI:RequestReset(global)
+        ReactionAPI.RequestReset(global)
     end
 end
 
@@ -328,7 +328,8 @@ end
 local function SetQualityStatus() --OnPostUpdate()
     cQualityStatus = {
         [visible] = {[newPickupsOnly] = 0x00, [everyPickup] = 0x00},
-        [blind] = {[newPickupsOnly] = 0x00, [everyPickup] = 0x00}
+        [blind] = {[newPickupsOnly] = 0x00, [everyPickup] = 0x00},
+        [absolute] = {[newPickupsOnly] = 0x00, [everyPickup] = 0x00}
     }
     for pickupID, _ in pairs(collectiblesInRoom) do
         local isBlind = blindPedestals[pickupID] ~= nil
@@ -344,10 +345,15 @@ local function SetQualityStatus() --OnPostUpdate()
     end
 end
 
+local function SetAbsoluteQualityStatus() --OnPostUpdate()
+    cQualityStatus[absolute][newPickupsOnly] = cQualityStatus[visible][newPickupsOnly] | cQualityStatus[blind][newPickupsOnly]
+    cQualityStatus[absolute][everyPickup] = cQualityStatus[visible][everyPickup] | cQualityStatus[blind][everyPickup]
+end
+
 local function SetBestCollectibleQuality() --OnPostUpdate()
-    cBestVisibleQuality = cQualityStatus[visible][everyPickup] == 0x00 and ReactionAPI.QualityStatus.NO_ITEMS or math.floor(math.log(cQualityStatus[visible][everyPickup], 2)) - 1
-    cBestBlindQuality = cQualityStatus[blind][everyPickup] == 0x00 and ReactionAPI.QualityStatus.NO_ITEMS or math.floor(math.log(cQualityStatus[blind][everyPickup], 2)) - 1
-    cBestAbsoluteQuality = math.max(cBestVisibleQuality, cBestBlindQuality)
+    cBestQuality[visible] = cQualityStatus[visible][everyPickup] == 0x00 and ReactionAPI.QualityStatus.NO_ITEMS or math.floor(math.log(cQualityStatus[visible][everyPickup], 2)) - 1
+    cBestQuality[blind] = cQualityStatus[blind][everyPickup] == 0x00 and ReactionAPI.QualityStatus.NO_ITEMS or math.floor(math.log(cQualityStatus[blind][everyPickup], 2)) - 1
+    cBestQuality[absolute] = math.max(cBestQuality[visible], cBestQuality[blind])
 end
 
 -- RESET
@@ -405,6 +411,14 @@ local function HandleOverwriteFunctions() --OnPostUpdate()
         for _, operation in ipairs(operations) do
             opCodes[operation.code](operation.args)
         end
+    end
+end
+
+local function HandleRequestedPickupResets() --OnLatePostUpdate()
+    for _, pickupID in pairs(requestedPickupResets) do
+        collectiblesInRoom[pickupID] = nil
+        blindPedestals[pickupID] = nil
+        shopItems[pickupID] = nil
     end
 end
 
@@ -468,6 +482,7 @@ local function OnPostUpdate()
     HandleShopItems()
     SetQualityStatus()
     HandleOverwriteFunctions()
+    SetAbsoluteQualityStatus()
     SetBestCollectibleQuality()
 end
 
@@ -479,6 +494,7 @@ local function OnLatePostUpdate()
     else
         ResetUpdateLocalVariables()
     end
+    HandleRequestedPickupResets()
 end
 
 local function ResetOnNewRoom()

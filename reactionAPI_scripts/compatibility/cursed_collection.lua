@@ -7,7 +7,7 @@ local function InitCursedCollection()
             return Game():GetLevel():GetCurses() & BLIGHT_FLAG ~= 0
         end
 
-        ReactionAPI:AddBlindCondition(IsCurseOfBlight, true)
+        ReactionAPI.AddBlindCondition(IsCurseOfBlight, true)
     end
 
     ReactionAPI:RemoveCallback(ModCallbacks.MC_POST_NEW_ROOM, InitCursedCollection)

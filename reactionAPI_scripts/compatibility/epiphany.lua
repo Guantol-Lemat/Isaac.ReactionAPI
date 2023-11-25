@@ -1,7 +1,7 @@
 local function InitEpiphany()
     if Epiphany then
         local function onNewTurnoverShop()
-            ReactionAPI:RequestReset()
+            ReactionAPI.RequestReset()
         end
 
         Epiphany:AddExtraCallback(Epiphany.ExtraCallbacks.TURNOVER_POST_CREATE_SHOP, onNewTurnoverShop)

@@ -18,7 +18,7 @@ end
 
 ReactionAPI.cImplementation = ReactionAPI.UserSettings.cImplementation
 
-ReactionAPI.MaxCollectibleID = 0
+ReactionAPI.MaxCollectibleID = nil
 
 local MCM = include("reactionAPI_scripts.menu.mod_config_menu")
 
@@ -110,7 +110,7 @@ local function InitItemData()
         if collectible then
             ReactionAPI.CollectibleData[collectibleID] = collectible.Quality
         end
-    end    
+    end
 end
 
 local function InitModData()

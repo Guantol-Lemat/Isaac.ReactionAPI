@@ -120,7 +120,6 @@ function MCM:InitModConfigMenu()
                         ReactionAPI.CollectibleData[collectibleID] = currentSetting
                     end
                     ReactionAPI.UserSettings["cVanilla"][collectibleID] = currentSetting
-                    ReactionAPI.requestedReset = true
                 end,
                 Info = {collectible.Name .. " (Quality ".. collectible.Quality .. ")"}
             })
@@ -169,7 +168,6 @@ function MCM:InitModConfigMenu()
                         ReactionAPI.CollectibleData[collectibleID] = currentSetting
                     end
                     ReactionAPI.UserSettings["cModded"][collectible.Name] = currentSetting
-                    ReactionAPI.requestedReset = true
                 end,
                 Info = {collectible.Name .. " (Quality ".. collectible.Quality .. ")"}
             })            

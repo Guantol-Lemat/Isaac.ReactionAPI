@@ -16,3 +16,7 @@ ReactionAPI.Utilities.AnyPlayerHasCollectible = function(CollectibleID, IgnoreMo
     end
     return false
 end
+
+ReactionAPI.Utilities.GetMaxCollectibleID = function ()
+    return ReactionAPI.MaxCollectibleID or nil
+end

@@ -13,16 +13,16 @@ local function InitTaintedTreasure()
                 if cachedIsEternalCurseOfBlind == true then
                     return
                 end
-                ReactionAPI:SetIsCurseOfBlindGlobal(false, ticketID)
-                ReactionAPI:ShouldIsBlindPedestalBeOptimized(false, ticketID)
+                ReactionAPI.SetIsCurseOfBlindGlobal(false, ticketID)
+                ReactionAPI.ShouldIsBlindPedestalBeOptimized(false, ticketID)
                 cachedIsEternalCurseOfBlind = true
                 return
             end
             if cachedIsEternalCurseOfBlind == false then
                 return
             end
-            ReactionAPI:SetIsCurseOfBlindGlobal(true, ticketID)
-            ReactionAPI:ShouldIsBlindPedestalBeOptimized(true, ticketID)
+            ReactionAPI.SetIsCurseOfBlindGlobal(true, ticketID)
+            ReactionAPI.ShouldIsBlindPedestalBeOptimized(true, ticketID)
             cachedIsEternalCurseOfBlind = false
         end
 

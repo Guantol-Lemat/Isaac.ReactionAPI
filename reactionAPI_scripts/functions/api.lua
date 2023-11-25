@@ -1,149 +1,113 @@
---- It is Suggested that this function is only used during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
+ReactionAPI.Interface = {}
+
+--- This function should be called during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
 --  Calling this function anywhere else might lead to the retrieval of incorrect data
---- @param isBlind boolean @default false
+--- @param Type ReactionAPI.Context.Visibility @can be nil
 --- @return ReactionAPI.QualityStatus
+--- @see ReactionAPI.Context.Visibility
 --- @see ReactionAPI.QualityStatus
---- @usage if ReactionAPI:GetCollectibleQuality() >= ReactionAPI.QualityStatus.QUALITY_3 then
+--- @usage if ReactionAPI.Interface.cGetBestQuality(ReactionAPI.Context.Visibility.VISIBLE) >= ReactionAPI.QualityStatus.QUALITY_3 then
 --              WePoggin()
 --         end
-function ReactionAPI:GetCollectibleQuality(isBlind)
-    if isBlind then
-        return ReactionAPI.bestCollectibleQualityBlind
-    else
-        return ReactionAPI.bestCollectibleQuality
-    end
-end
+ReactionAPI.Interface.cGetBestQuality = ReactionAPI.GetCollectibleBestQuality
 
---- It is Suggested that this function is only used during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
---- @param isBlind boolean @default false
---- @return boolean
---- @usage if ReactionAPI:HasCollectibleQualityChanged and ReactionAPI:GetCollectibleQuality() < ReactionAPI.QualityStatus.QUALITY_3 then
---              DeactivatePoggin()
---         end
-function ReactionAPI:HasCollectibleQualityChanged(isBlind)
-    if isBlind then
-        return ReactionAPI.changed_bestCollectibleQualityBlind
-    else
-        return ReactionAPI.changed_bestCollectibleQuality
-    end
-end
+--- This function should be called during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
+--  Calling this function anywhere else might lead to the retrieval of incorrect data
+--- @param Visibility ReactionAPI.Context.Visibility @can be nil
+--- @param Filter ReactionAPI.Context.Filter @can be nil
+--- @return table or integer @an integer is returned if both Visibility and Filter are ~= nil
+--- @see ReactionAPI.Context.Visibility
+--- @usage cQualityStatus = ReactionAPI.Interface.cGetQualityStatus()
+--         cVisibleQualityStatus = ReactionAPI.Interface.cGetQualityStatus(ReactionAPI.Context.Visibility.VISIBLE)
+--         cNewQualityStatus = ReactionAPI.Interface.cGetQualityStatus(nil, ReactionAPI.Context.Visibility.NEW) 
+--         cNewAbsoluteQualityStatus = ReactionAPI.Interface.cGetQualityStatus(ReactionAPI.Context.Visibility.ABSOLUTE, ReactionAPI.Context.Visibility.NEW)
+ReactionAPI.Interface.cGetQualityStatus = ReactionAPI.GetCollectibleQualityStatus
 
---- Checks that at least a specific item of the quality specified in Partition is present in the room
---  Should be used during MC_POST_UPDATE, so that data is accurate to that of the current frame
---  If the partition is meant to identify multiple qualities then the All parameter can be used to check if All the qualities are present (true), or if only at least one of the qualities is present (false) 
---- @param isBlind boolean @default false
---- @param Partition ReactionAPI.QualityPartitions
---- @param All boolean @default false
+--- This function should be called during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
+--  Calling this function anywhere else might lead to the retrieval of incorrect data
+--  This function returns 4 tables each needed to understand the full situation in the current room
+--- @return table
+--- @usage collectiblesInRoom, newCollectibles, blindPedestals, shopItems = ReactionAPI.Interface.GetCollectibleData()
+ReactionAPI.Interface.GetCollectibleData = ReactionAPI.GetCollectibleData
+
+--- This function should be called during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
+--  Calling this function anywhere else might lead to the retrieval of incorrect data
+--  If there are multiple flags set in the partition and the AllPresent parameter can be set to true so that the function will only return true if all Qualities are present
+--- @param PresencePartition ReactionAPI.QualityPartitions @if nil then the function will throw an ERROR and return nil
+--- @param Visibility ReactionAPI.Context.Visibility @default ReactionAPI.Context.Visibility.VISIBLE
+--- @param Filter ReactionAPI.Context.Filter @default false
+--- @param AllPresent boolean @default false
 --- @return boolean
 --- @see ReactionAPI.QualityPartitions
+--- @see ReactionAPI.Context.Visibility
+--- @usage local partition = ReactionAPI.QualityPartitions.QUALITY_0 | ReactionAPI.QualityPartitions.QUALITY_1
+--         if ReactionAPI.Interface.cCheckForPresence(partition, ReactionAPI.Context.VISIBLE, false, false) then
+--              --[[ custom code ]]
+--         end
+ReactionAPI.Interface.cCheckForPresence = ReactionAPI.CheckForCollectiblePresence
+
+--- This function should be called during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
+--  Calling this function anywhere else might lead to the retrieval of incorrect data
+--  If there are multiple flags set in the partition and the AllAbsent parameter can be set to true so that the function will only return true if all Qualities are present
+--- @param AbsencePartition ReactionAPI.QualityPartitions @if nil then the function will throw an ERROR and return nil
+--- @param Visibility ReactionAPI.Context.Visibility @default ReactionAPI.Context.Visibility.VISIBLE
+--- @param Filter ReactionAPI.Context.Filter @default false
+--- @param AllAbsent boolean @default false
+--- @return boolean
+--- @see ReactionAPI.QualityPartitions
+--- @see ReactionAPI.Context.Visibility
 --- @usage local partition = ReactionAPI.QualityPartitions.QUALITY_3 | ReactionAPI.QualityPartitions.QUALITY_4
---         if ReactionAPI.CheckForPresence(false, partition, false) then
+--         if ReactionAPI.Interface.cCheckForAbsence(partition, ReactionAPI.Context.VISIBLE, false, true) then
 --              --[[ custom code ]]
 --         end
-function ReactionAPI:CheckForPresence(isBlind, Partition, All)
-    if isBlind then
-        if All then
-            return ReactionAPI.cBlindQualityPresence & Partition == Partition
-        else
-            return ReactionAPI.cBlindQualityPresence & Partition ~= 0
-        end
-    else
-        if All then
-            return ReactionAPI.cQualityPresence & Partition == Partition
-        else
-            return ReactionAPI.cQualityPresence & Partition ~= 0
-        end
-    end
-end
+ReactionAPI.Interface.cCheckForAbsence = ReactionAPI.CheckForCollectibleAbsence
 
---- Checks if a specific it item of the quality specified in Partition is not present in the room
---  Should be used during MC_POST_UPDATE, so that data is accurate to that of the current frame
---  Everything that this function does can also be achieved by negating the previous function, however it has been introduced to improve readability by making the intention clear.
---- @param isBlind boolean @default false
---- @param Partition ReactionAPI.QualityPartitions
---- @param All boolean @default true
---- @return boolean
---- @see ReactionAPI.QualityPartitions
---- @usage local whitelist = ReactionAPI.QualityPartitions.QUALITY_0 | ReactionAPI.QualityPartitions.QUALITY_1
---         local blacklist = ReactionAPI.QualityPartitions.QUALITY_3 | ReactionAPI.QualityPartitions.QUALITY_4
---         if ReactionAPI.CheckforPresence(false, whitelist, false) and ReactionAPI.CheckForAbsence(false, blacklist, true) then
---              --[[ custom code ]]
---         end
-function ReactionAPI:CheckForAbsence(isBlind, Partition, All)
-    if isBlind then
-        if not All then
-            return ReactionAPI.cBlindQualityPresence & Partition ~= Partition
-        else
-            return ReactionAPI.cBlindQualityPresence & Partition == 0
-        end
-    else
-        if not All then
-            return ReactionAPI.cQualityPresence & Partition ~= Partition
-        else
-            return ReactionAPI.cQualityPresence & Partition == 0
-        end
-    end
-end
-
---- Checks if the QualityStatus of collectibles has changed
---  you can use the BitFlag variable to detect changes in the Presence BitFlag (true) or to simply to detect if the BestQuality has changed
---- @param isBlind boolean @default false
---- @param BitFlag boolean @default false
---- @return boolean
-function ReactionAPI:HasCollectibleStatusChanged(isBlind, BitFlag)
-    if BitFlag then
-        if isBlind then
-            return ReactionAPI.changed_cBlindQualityPresence
-        else
-            return ReactionAPI.changed_cQualityPresence
-        end
-    else
-        if isBlind then
-            return ReactionAPI.changed_bestCollectibleQualityBlind
-        else
-            return ReactionAPI.changed_bestCollectibleQuality
-        end
-    end
-end
-
---- Adds a condition, represented by a function that returns a boolean value that determines if a collectible should be considered Blind
---  When the function is added as Global it is evaluated once, and if true will cause All collectibles to be considered Blind
---  When the function is not added as Global it is evaluated as many times as the number of Collectibles in the room, and if true will cause the single Collectible to be considered Blind
---- @param Function function
---- @param Global boolean
+--- Adds a condition, represented by a function that determines whether on that a collectible should be considered Blind
+--  The Function must return a boolean
+--  When the function is added as Global it is evaluated once, and if evaluated as true, it will cause All collectibles to be considered Blind
+--  When the function is not added as Global it is evaluated for every collectible in the Room, and if evaluated as true, it will cause the single Collectible to be considered Blind
+--- @param Function function @if the type of Function is not function then an ERROR will be thrown and nothing will be added
+--- @param Global boolean @default true
 --- @usage function IsCurseBlind()
 --              return Game():GetLevel():GetCurses() & LevelCurse.CURSE_OF_BLIND ~= 0
 --         end
---         ReactionAPI:AddBlindCondition(IsCurseBlind, true)
-function ReactionAPI:AddBlindCondition(Function, Global)
-    if Global then
-        table.insert(ReactionAPI.globalBlindConditions, 1, Function)
-    else
-        table.insert(ReactionAPI.blindCollectibleConditions, 1, Function)
-    end
-end
+--         ReactionAPI.Interface.AddBlindCondition(IsCurseBlind, true)
+ReactionAPI.Interface.AddBlindCondition = ReactionAPI.AddBlindCondition
 
 --- Allows to set the variable that dictates whether or not Curse of The Blind should be evaluated as a Global Blind Condition
---- @param Status boolean
-function ReactionAPI:SetCurseOfBlindGlobalStatus(Status)
-    ReactionAPI.globalCurseOfBlind = Status
-end
-
---- Should be used if your mod is initializing new collectibles and the implemented detection systems Fails to enforce a Reset of the ReactionAPI.QualityStatus
---  A good example of this is the Epiphany Turnover Shops that do not get detected when created because the EntityEffect is not in the same Position as the Collectible
---  Reset Fails can only be detected if the new items are of Lower Quality than the previous ReactionAPI.QualityStatus
---  If you are morphing an item in order to try and create a "Cycling" Item effect (Like Glitched Crow or Tainted Isaac) then you should not Request a Reset 
---- @usage --[[ code that generates or changes an Item ]]
---         if ReactionAPI then
---              ReactionAPI:RequestReset()
+--  This variable uses tickets to determine how many mods are currently requesting that Curse of The Blind is not evaluated as a Global Blind Condition
+--  Only when there are no tickets will the Curse return to be a Global Condition
+--- @param IsGlobal boolean @default true
+--- @param TicketID any @if nil then the function will throw an ERROR and the ticket will not be added/removed
+--- @usage if (condition) then
+--             ReactionAPI.Interface.SetIsCurseOfBlindGlobal(false, "MyModTicket")
+--         else
+--             ReactionAPI.Interface.SetIsCurseOfBlindGlobal(true, "MyModTicket")
 --         end
-function ReactionAPI:RequestReset()
-    ReactionAPI.requestedReset = true
-end
+ReactionAPI.Interface.SetIsCurseOfBlindGlobal = ReactionAPI.SetIsCurseOfBlindGlobal
 
---- Simple Function that gives you the ID of the last collectible
---  Any collectible that is initialized with an ID higher than this is a Glitched Item
---- @return integer
-function ReactionAPI:GetMaxCollectibleID()
-    return ReactionAPI.MaxCollectibleID
-end
+--- Allows to set whether or not the function that determines if a Collectible is Blind, should perform any type of optimization to avoid a significant slowdowns
+--  Should be used only if the optimization interferes with your mod's behaviour
+--  For reference the optimization prevents the main part of the function from being executed when the player is not in a Treasure room in an Alt Path Floor
+--  This function also uses a Tickets to determine how many mods are currently requesting that the function should not perform any kind of optimization
+--- @param Answer boolean @default true
+--- @param TicketID any @if nil then the function will throw an ERROR and the ticket will not be added/removed
+--- @usage if (condition) then
+--             ReactionAPI.Interface.ShouldIsBlindPedestalBeOptimized(false, "MyModTicket")
+--         else
+--             ReactionAPI.Interface.ShouldIsBlindPedestalBeOptimized(true, "MyModTicket")
+--         end
+ReactionAPI.Interface.ShouldIsBlindPedestalBeOptimized = ReactionAPI.ShouldIsBlindPedestalBeOptimized
+
+--- Should be used if your mod is initializing new collectibles or rerolling already existing ones and the implemented detection systems Fails to either delete or reset them in the collectiblesInRoom table
+--  If you are morphing an item in order to try and create a "Cycling" Item effect (Like Glitched Crow or Tainted Isaac) then you should not Request a Reset
+--  You can also specify if a reset needs to be global (all items are deleted and recalculated) or if a specific pedestal needs to be reset
+--  Out of the two the second method is preferred for both performance and compatibility with other mods, unless you are deleting/rerolling all pedestal, in which case a global reset is better
+--- @param Global boolean @default true
+--- @param EntityIDs table @can be nil if Global == true else the function will throw an ERROR and no reset will occur
+--- @usage --[[ code that generates or changes an Item]]
+--         itemsChanged = {25, 67, 300} -- Get Item Ids using EntityPickup.Index
+--         if ReactionAPI then
+--              ReactionAPI.Interface.RequestReset(false, itemsChanged)
+--         end
+ReactionAPI.Interface.RequestReset = ReactionAPI.RequestReset

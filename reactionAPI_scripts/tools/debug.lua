@@ -1,10 +1,13 @@
 local font = Font()
 font:Load("font/luaminioutlined.fnt")
-local TEXT_X = 260
-local TEXT_Y = 292
+local TEXT_X_DEFAULT = 260
+local TEXT_Y_DEFAULT = 292
+local TEXT_X = TEXT_X_DEFAULT
+local TEXT_Y = TEXT_Y_DEFAULT
 local LINE_HEIGHT = font:GetLineHeight()
 local TEXT_COLOR = KColor(1, 1, 1, 1)
 
+local postRenderCalls = 0
 local dataFetched = false
 
 local cBestVisibleQuality
@@ -15,10 +18,11 @@ local newCollectibles
 local blindPedestals
 local shopItems
 
-local visible = false
-local blind = true
-local newOnly = true
-local all = false
+local visible = ReactionAPI.Context.Visibility.VISIBLE
+local blind = ReactionAPI.Context.Visibility.BLIND
+local absolute = ReactionAPI.Context.Visibility.ABSOLUTE
+local newOnly = ReactionAPI.Context.Filter.NEW
+local all = ReactionAPI.Context.Filter.ALL
 
 local debugLines = {
     [ReactionAPI.QualityStatus.NO_ITEMS] = "NO_ITEMS",
@@ -68,15 +72,15 @@ local Keybinds = {
 }
 
 local function FetchData()
-    cBestVisibleQuality = ReactionAPI:GetCollectibleBestQuality(ReactionAPI.Context.Type.VISIBLE)
-    cBestBlindQuality = ReactionAPI:GetCollectibleBestQuality(ReactionAPI.Context.Type.BLIND)
-    cQualityStatus = ReactionAPI:GetCollectibleQualityStatus()
-    collectiblesInRoom, newCollectibles, blindPedestals, shopItems = ReactionAPI:GetCollectibleData()
+    cBestVisibleQuality = ReactionAPI.GetCollectibleBestQuality(ReactionAPI.Context.Visibility.VISIBLE)
+    cBestBlindQuality = ReactionAPI.GetCollectibleBestQuality(ReactionAPI.Context.Visibility.BLIND)
+    cQualityStatus = ReactionAPI.GetCollectibleQualityStatus()
+    collectiblesInRoom, newCollectibles, blindPedestals, shopItems = ReactionAPI.GetCollectibleData()
     dataFetched = true
 end
 
-local function ResetPrintedTextPosition ()
-    TEXT_Y = 292
+local function ResetPrintedTextPosition()
+    TEXT_Y = TEXT_Y_DEFAULT
 end
 
 local function PrintBestQuality()
@@ -103,6 +107,15 @@ local function PrintQualityStatus()
         end
     end
     font:DrawString(blindQualityPresenceString, TEXT_X, TEXT_Y - LINE_HEIGHT + 10 , TEXT_COLOR)
+    local absoluteQualityPresenceString = "AbsoluteCollectiblePresence: 0x"
+    for i = 0, 5 do
+        if cQualityStatus[absolute][all] & (1 << i) ~= 0 then
+            absoluteQualityPresenceString = absoluteQualityPresenceString .. "1"
+        else
+            absoluteQualityPresenceString = absoluteQualityPresenceString .. "0"
+        end
+    end
+    font:DrawString(absoluteQualityPresenceString, TEXT_X, TEXT_Y - LINE_HEIGHT + 20 , TEXT_COLOR)
 end
 
 local function DebugPrintPresenceList()
@@ -117,10 +130,10 @@ end
 local function DebugPrintNewCollectibles()
     Isaac.DebugString("New Collectibles:")
     for collectibleID, _ in pairs(newCollectibles[visible]) do
-        Isaac.DebugString("CollectibleID: " .. collectibleID .. ", IsBlind:" .. tostring(true) .. ", CollectibleName: " .. Isaac.GetItemConfig():GetCollectible(collectibleID).Name)
+        Isaac.DebugString("CollectibleID: " .. collectibleID .. ", IsBlind:" .. tostring(false) .. ", CollectibleName: " .. Isaac.GetItemConfig():GetCollectible(collectibleID).Name)
     end
     for collectibleID, _ in pairs(newCollectibles[blind]) do
-        Isaac.DebugString("CollectibleID: " .. collectibleID .. ", IsBlind:" .. tostring(false) .. ", CollectibleName: " .. Isaac.GetItemConfig():GetCollectible(collectibleID).Name)
+        Isaac.DebugString("CollectibleID: " .. collectibleID .. ", IsBlind:" .. tostring(true) .. ", CollectibleName: " .. Isaac.GetItemConfig():GetCollectible(collectibleID).Name)
     end
 end
 
@@ -134,24 +147,40 @@ end
 local function DebugPrintShopItems()
     Isaac.DebugString("Shop Items:")
     for pickupID, _ in pairs(shopItems) do
-        for collectibleID, _ in pairs(collectiblesInRoom[pickupID]) do
-            Isaac.DebugString("CollectibleID: " .. collectibleID .. ", IsBlind:" .. tostring(blindPedestals[pickupID] ~= nil) .. ", CollectibleName: " .. Isaac.GetItemConfig():GetCollectible(collectibleID).Name)
+        Isaac.DebugString("PickupID: " .. pickupID)
+    end
+end
+
+local function NewCollectiblesSpawned()
+    return (ReactionAPI.Utilities.GetTableLength(newCollectibles[visible]) > 0 or ReactionAPI.Utilities.GetTableLength(newCollectibles[blind]) > 0) and postRenderCalls % 2 == 0 -- Print only once every Update
+end
+
+local function DebugText()
+    ResetPrintedTextPosition()
+    postRenderCalls = postRenderCalls >= 1 and 0 or postRenderCalls + 1
+    if dataFetched then --To avoid Errors on Startup
+        PrintBestQuality()
+        TEXT_Y = TEXT_Y + 20
+        PrintQualityStatus()
+        if NewCollectiblesSpawned() then
+            DebugPrintPresenceList()
+            DebugPrintNewCollectibles()
+            DebugPrintBlindPedestals()
+            DebugPrintShopItems()
         end
     end
 end
 
-local function DebugText()
-    if dataFetched then --To avoid Errors on Startup
-        ResetPrintedTextPosition()
-        PrintBestQuality()
-        TEXT_Y = TEXT_Y + 20
-        PrintQualityStatus()
+DebugCommand.PrintDebugData = function ()
+    if dataFetched then
         DebugPrintPresenceList()
         DebugPrintNewCollectibles()
         DebugPrintBlindPedestals()
         DebugPrintShopItems()
     end
 end
+
+Keybinds[Keyboard.KEY_O] = DebugCommand.PrintDebugData
 
 local function ResetOnExit()
     cBestVisibleQuality, cBestBlindQuality, cQualityStatus,collectiblesInRoom, newCollectibles, blindPedestals, shopItems = nil

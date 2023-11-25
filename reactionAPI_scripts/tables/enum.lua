@@ -35,11 +35,14 @@ ReactionAPI.OpCodes = {
 }
 
 ReactionAPI.Context = {
-    Type = {
-        VISIBLE = 1,
-        BLIND = 2,
-        ABSOLUTE = 3,
-        ALL = 4
+    Visibility = {
+        VISIBLE = false,
+        BLIND = true,
+        ABSOLUTE = 1
+    },
+    Filter = {
+        NEW = true,
+        ALL = false
     }
 }
 
