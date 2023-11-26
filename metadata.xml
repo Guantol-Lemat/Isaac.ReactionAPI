@@ -1,8 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <metadata>
-	<name>!! ReactionAPI</name>
-	<directory>!! reactionAPI</directory>
-	<description/>
-	<version>1.0</version>
-	<visibility/>
-</metadata>
+    <name>!! ReactionAPI</name>
+    <directory>!! reactionapi</directory>
+    <id>3096181411</id>
+    <description>[h1]ReactionAPI[/h1]
 
+An [b]API[/b] that greatly eases the creation of 'Reaction to Quality Items' Mods.
+
+This mod represents the brain of those mods, the part that scans the room for items and finds the best quality.
+As such if the mod is installed alone it will only impact performance, without adding any visual flair.
+
+This API aims to improve the previously utilized scanning methodology by:
+
+[list]
+    [*] Preventing the execution of Code in rooms where there are no Item Pedestals.
+	[*] Making sure that regardless of how many 'Reaction' Mods have been enabled, the scanning process is only executed once.
+	[*] Provides better interaction with Glitched Items and Cycling Pedestals ([spoiler]Glitched Crown, T.Isaac Effect[/spoiler]).
+	[*] Provides the tools for mod creators to easily implement Compatibility patches for effects that modify Item mechanics.
+	[*] Allows users to customize the Quality of each item (including modded ones), freeing the developers from having to create a settings menu, and the users from having to manually synchronize their preferences across multiple mods (This is only possible whilst using [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2681875787]Mod Config Menu[/url]).
+[/list]
+
+Additionally the mod keeps track of all the Item Pedestals present within the current room, giving easy access to information such as: blind status of a pedestal, the items present within a Cycling Pedestal and their cycle order.
+
+Visit the [url=https://github.com/Guantol-Lemat/Isaac.ReactionAPI]Github repository[/url] for more info on how to implement the API within your mod.
+
+This mod also has built-in compatibility with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2724039000]Cursed Collection[/url] treating Items during Curse of the Blight as Blind items.</description>
+    <version>1.1</version>
+    <visibility>Public</visibility>
+    <tag id="Lua"/>
+    <tag id="Items"/>
+    <tag id="Active Items"/>
+    <tag id="Pickups"/>
+</metadata>
