@@ -20,3 +20,18 @@ end
 ReactionAPI.Utilities.GetMaxCollectibleID = function ()
     return ReactionAPI.MaxCollectibleID or nil
 end
+
+local function DeepCopy(Table)
+    if type(Table) ~= "table" then
+        return Table
+    end
+
+    local final = setmetatable({}, getmetatable(Table))
+    for i, v in pairs(Table) do
+        final[DeepCopy(i)] = DeepCopy(v)
+    end
+
+    return final
+end
+
+ReactionAPI.Utilities.DeepCopy = DeepCopy

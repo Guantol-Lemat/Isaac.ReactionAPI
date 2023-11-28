@@ -1,6 +1,9 @@
 local json = require("json")
+local DeepCopy = ReactionAPI.Utilities.DeepCopy
 
-ReactionAPI.UserSettings = {
+local firstStart = true
+
+ReactionAPI.DefaultUserSettings = {
     Version = ReactionAPI.ModVersion,
     cImplementation = ReactionAPI.cImplementation,
     cOptimizeIsBlindPedestal = true,
@@ -9,12 +12,18 @@ ReactionAPI.UserSettings = {
     cModded = {}
 }
 
+ReactionAPI.UserSettings = DeepCopy(ReactionAPI.DefaultUserSettings)
+
 ReactionAPI.CollectibleData = {}
+
+--[[
 
 if ReactionAPI:HasData() then
     local loadedData = json.decode(ReactionAPI:LoadData())
     ReactionAPI.UserSettings.cImplementation = loadedData["cImplementation"] or ReactionAPI.UserSettings.cImplementation
 end
+
+]]
 
 ReactionAPI.cImplementation = ReactionAPI.UserSettings.cImplementation
 
@@ -113,6 +122,21 @@ local function InitItemData()
     end
 end
 
+local function InitSaveData()
+    if firstStart then
+        firstStart = false
+        return
+    end
+    ReactionAPI.UserSettings = DeepCopy(ReactionAPI.DefaultUserSettings)
+    if ModConfigMenu then
+        InitUserData()
+        InitItemDataMCM()
+    else
+        InitUserData()
+        InitItemData()
+    end
+end
+
 local function InitModData()
 
     ReactionAPI.MaxCollectibleID = GetMaxCollectibleID()
@@ -121,14 +145,15 @@ local function InitModData()
 
     if ModConfigMenu then
         InitUserData()
-        InitItemDataMCM() 
+        InitItemDataMCM()
         MCM:InitModConfigMenu()
     else
         InitUserData()
         InitItemData()
     end
 
-    ReactionAPI:RemoveCallback(ModCallbacks.MC_POST_NEW_ROOM, InitModData)       
+    ReactionAPI:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, InitSaveData)
+    ReactionAPI:RemoveCallback(ModCallbacks.MC_POST_NEW_ROOM, InitModData)
 end
 
 local function SaveSettings()
