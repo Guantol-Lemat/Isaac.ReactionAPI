@@ -1,5 +1,33 @@
 local MCM = {}
 
+local function ResetItemQualityToDEFAULT()
+    for collectibleID = 1, ReactionAPI.MaxCollectibleID do
+        local collectible = Isaac.GetItemConfig():GetCollectible(collectibleID)
+        if collectible then
+            ReactionAPI.CollectibleData[collectibleID] = collectible.Quality
+            if collectibleID < CollectibleType.NUM_COLLECTIBLES then
+                ReactionAPI.UserSettings["cVanilla"][collectibleID] = ReactionAPI.Setting.DEFAULT
+            else
+                ReactionAPI.UserSettings["cModded"][collectible.Name] = ReactionAPI.Setting.DEFAULT
+            end
+        end
+    end
+end
+
+local function SetQuestItemsToIGNORE()
+    for collectibleID = 1, ReactionAPI.MaxCollectibleID do
+        local collectible = Isaac.GetItemConfig():GetCollectible(collectibleID)
+        if collectible and collectible:HasTags(ItemConfig.TAG_QUEST) then
+            ReactionAPI.CollectibleData[collectibleID] = ReactionAPI.QualityStatus.NO_ITEMS
+            if collectibleID < CollectibleType.NUM_COLLECTIBLES then
+                ReactionAPI.UserSettings["cVanilla"][collectibleID] = ReactionAPI.Setting.IGNORE
+            else
+                ReactionAPI.UserSettings["cModded"][collectible.Name] = ReactionAPI.Setting.IGNORE
+            end
+        end
+    end
+end
+
 function MCM:InitModConfigMenu()
     local CategoryName = "ReactionAPI"
 
@@ -80,6 +108,41 @@ function MCM:InitModConfigMenu()
         })
     end
 
+    --Buttons
+
+    ModConfigMenu.AddSpace(CategoryName, "General")
+    ModConfigMenu.AddSetting(CategoryName, "General",
+    {
+        Type = ModConfigMenu.OptionType.NUMBER,
+        CurrentSetting = function()
+            return 0
+        end,
+        Minimum = 0,
+        Maximum = 0,
+        Display = function()
+            return 'Set All Items to DEFAULT'
+        end,
+        OnChange = function(currentSetting)
+            ResetItemQualityToDEFAULT()
+        end,
+        Info = {"Press Any Directional Input to Reset all Item Qualities to DEFAULT"}
+    })
+    ModConfigMenu.AddSetting(CategoryName, "General",
+    {
+        Type = ModConfigMenu.OptionType.NUMBER,
+        CurrentSetting = function()
+            return 0
+        end,
+        Minimum = 0,
+        Maximum = 0,
+        Display = function()
+            return 'Set All "Quest" Items to IGNORE'
+        end,
+        OnChange = function(currentSetting)
+            SetQuestItemsToIGNORE()
+        end,
+        Info = {"Press Any Directional Input to set all Items with the \"Quest\" TAG to IGNORE"}
+    })
 
     --Create Vanilla Settings
 

@@ -40,7 +40,7 @@ local DebugCommand = {
         Isaac.ExecuteCommand('giveitem c416')
         for i = 1, 10 do
         Isaac.ExecuteCommand('giveitem c18')
-        end        
+        end
     end,
     cSpawn = function ()
         Isaac.DebugString("Pickup Spawned")
@@ -213,8 +213,10 @@ ReactionAPI:AddCallback(ModCallbacks.MC_POST_RENDER, KeybindManager)
 
 ReactionAPI:AddCallback(ModCallbacks.MC_EXECUTE_CMD, onExecuteCmd)
 
+local firstInitEpiphany = true
+
 local function DebugEpiphany()
-    if Epiphany then
+    if firstInitEpiphany and Epiphany then
         local turnoverID = Isaac.GetItemIdByName('Turnover')
         local debugString = "giveitem c" .. turnoverID
 
@@ -223,13 +225,16 @@ local function DebugEpiphany()
         end
         Keybinds[Keyboard.KEY_F9] = DebugCommand.GiveTurnover
     end
-    ReactionAPI:RemoveCallback(ModCallbacks.MC_POST_NEW_ROOM, DebugEpiphany)
+    firstInitEpiphany = false
+    -- ReactionAPI:RemoveCallback(ModCallbacks.MC_POST_NEW_ROOM, DebugEpiphany)
 end
 
 ReactionAPI:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, DebugEpiphany)
 
+local firstInitCursed = true
+
 local function DebugCursedCollection()
-    if CURCOL then
+    if firstInitCursed and CURCOL then
         local curseOfTheBlight = Isaac.GetCurseIdByName("Curse of Blight")
         local BLIGHT_FLAG = 1 << (curseOfTheBlight - 1)
 
@@ -243,8 +248,8 @@ local function DebugCursedCollection()
 
         Keybinds[Keyboard.KEY_F8] = DebugCommand.ToggleBlight
     end
-
-    ReactionAPI:RemoveCallback(ModCallbacks.MC_POST_NEW_ROOM, DebugCursedCollection)
+    firstInitCursed = false
+    -- ReactionAPI:RemoveCallback(ModCallbacks.MC_POST_NEW_ROOM, DebugCursedCollection)
 end
 
 ReactionAPI:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, DebugCursedCollection)
