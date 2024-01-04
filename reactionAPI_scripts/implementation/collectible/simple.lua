@@ -1,8 +1,14 @@
--------------
---VARIABLES--
--------------
+---------------------------------------------------------------------------------------------------
+---------------------------------------------VARIABLES---------------------------------------------
+---------------------------------------------------------------------------------------------------
 
--- CONTEXT
+-----------------------------------------------DEBUG-----------------------------------------------
+
+local PROFILE = false
+local updateCycle_ProfileTimeStart = Isaac.GetTime()
+local numCollectibleUpdates = 0
+
+----------------------------------------------CONTEXT----------------------------------------------
 
 local evaluateGlobally = true
 local evaluatePerCollectible = false
@@ -13,16 +19,17 @@ local newPickupsOnly = ReactionAPI.Context.Filter.NEW
 local everyPickup = ReactionAPI.Context.Filter.ALL
 local global = true
 
--- CONSTANTS
+---------------------------------------------CONSTANTS---------------------------------------------
 
 local blindCollectibleSprite = Sprite()
 blindCollectibleSprite:Load("gfx/005.100_collectible.anm2", true)
 blindCollectibleSprite:ReplaceSpritesheet(1, "gfx/items/collectibles/questionmark.png")
 blindCollectibleSprite:LoadGraphics()
 
--- FLAGS
+-----------------------------------------------FLAGS-----------------------------------------------
 
 local globallyBlind = false
+local curseOfBlind = false -- ONLY FOR REPENTOGON
 local isCurseOfBlindNotGlobal_Tickets = {} -- API EXPOSED -- WRITE ONLY -- PERSISTENT
 local shouldIsBlindPedestalNotOptimize_Tickets = {} -- API EXPOSED -- WRITE ONLY -- PERSISTENT
 
@@ -31,7 +38,7 @@ local requestedGlobalReset = false -- API EXPOSED -- WRITE ONLY
 local delayRequestedGlobalReset = false
 local requestedPickupResets = {} -- API EXPOSED -- WRITE ONLY
 
--- AUXILIARY
+---------------------------------------------AUXILIARY---------------------------------------------
 
 local poofPositions = {}
 local cachedOptionGroup = {}
@@ -41,7 +48,7 @@ local blindPedestals = {} -- API EXPOSED -- READ ONLY
 local shopItems = {} -- API EXPOSED -- READ ONLY
 local newCollectibles = {[visible] = {}, [blind] = {}} -- API EXPOSED -- READ ONLY
 
--- MAIN
+-----------------------------------------------MAIN------------------------------------------------
 
 local collectiblesInRoom = {} -- API EXPOSED -- READ ONLY
 
@@ -57,17 +64,17 @@ local cBestQuality = { -- API EXPOSED -- READ ONLY
     [absolute] = ReactionAPI.QualityStatus.NO_ITEMS
 }
 
--- CUSTOM RULES
+-------------------------------------------CUSTOM RULES--------------------------------------------
 
 local isCollectibleBlindConditions = {} -- API EXPOSED -- WRITE ONLY -- PERSISTENT
 local isGloballyBlindConditions = {} -- API EXPOSED -- WRITE ONLY -- PERSISTENT
 local overwriteFunctions = {} -- PERSISTENT
 
--------------
---FUNCTIONS--
--------------
+---------------------------------------------------------------------------------------------------
+---------------------------------------------FUNCTIONS---------------------------------------------
+---------------------------------------------------------------------------------------------------
 
--- HELPER
+----------------------------------------------HELPER-----------------------------------------------
 
 local function OpCodeSET(args)
     cQualityStatus[args.isBlind][args.isNew] = cQualityStatus[args.isBlind][args.isNew] | args.partition
@@ -83,7 +90,7 @@ local opCodes = {
     [ReactionAPI.OpCodes.CLEAR] = OpCodeCLEAR
 }
 
--- API
+------------------------------------------------API------------------------------------------------
 
 function ReactionAPI.GetCollectibleBestQuality(Visibility)
     if Visibility ~= nil then
@@ -118,7 +125,7 @@ function ReactionAPI.CheckForCollectiblePresence(PresencePartition, IsBlind, Che
     AllPresent = false or AllPresent
     if PresencePartition <= 0x00 or PresencePartition >= 1 << (ReactionAPI.QualityStatus.QUALITY_4 + 2) then
         local errorMessage = "[ERROR in ReactionAPI.CheckForCollectiblePresence]: an invalid PresencePartition was passed"
-        Isaac.ConsoleOutput(errorMessage)
+        Isaac.ConsoleOutput(errorMessage .. "\n")
         Isaac.DebugString(errorMessage)
         return
     end
@@ -136,7 +143,7 @@ function ReactionAPI.CheckForCollectibleAbsence(AbsencePartition, IsBlind, Check
     AllAbsent = AllAbsent == nil and true or AllAbsent
     if AbsencePartition <= 0x00 or AbsencePartition >= 1 << (ReactionAPI.QualityStatus.QUALITY_4 + 2) then
         local errorMessage = "[ERROR in ReactionAPI.CheckForCollectibleAbsence]: an invalid AbsencePartition was passed"
-        Isaac.ConsoleOutput(errorMessage)
+        Isaac.ConsoleOutput(errorMessage .. "\n")
         Isaac.DebugString(errorMessage)
         return
     end
@@ -152,7 +159,7 @@ function ReactionAPI.AddBlindCondition(Function, Global)
     Global = Global == nil and true or Global
     if type(Function) ~= "function" then
         local errorMessage = "[ERROR in ReactionAPI.AddBlindCondition]: no Function was passed"
-        Isaac.ConsoleOutput(errorMessage)
+        Isaac.ConsoleOutput(errorMessage .. "\n")
         Isaac.DebugString(errorMessage)
         return
     end
@@ -168,7 +175,7 @@ function ReactionAPI.SetIsCurseOfBlindGlobal(IsGlobal, TicketID)
     IsGlobal = IsGlobal == nil and true or IsGlobal
     if TicketID == nil then
         local errorMessage = "[ERROR in ReactionAPI.SetIsCurseOfBlindGlobal]: no TicketID was passed"
-        Isaac.ConsoleOutput(errorMessage)
+        Isaac.ConsoleOutput(errorMessage .. "\n")
         Isaac.DebugString(errorMessage)
         return
     end
@@ -186,7 +193,7 @@ function ReactionAPI.ShouldIsBlindPedestalBeOptimized(Answer, TicketID)
     Answer = Answer == nil and true or Answer
     if TicketID == nil then
         local errorMessage = "[ERROR in ReactionAPI.ShouldIsBlindPedestalBeOptimized]: no TicketID was passed"
-        Isaac.ConsoleOutput(errorMessage)
+        Isaac.ConsoleOutput(errorMessage .. "\n")
         Isaac.DebugString(errorMessage)
         return
     end
@@ -204,7 +211,7 @@ function ReactionAPI.RequestReset(Global, EntityIDs)
     Global = Global == nil and true or Global
     if not Global and type(EntityIDs) ~= "table" then
         local errorMessage = "[ERROR in ReactionAPI.RequestReset]: no EntityIDs were passed on a non global request"
-        Isaac.ConsoleOutput(errorMessage)
+        Isaac.ConsoleOutput(errorMessage .. "\n")
         Isaac.DebugString(errorMessage)
         return
     end
@@ -218,7 +225,7 @@ function ReactionAPI.RequestReset(Global, EntityIDs)
     end
 end
 
--- VANILLA BLIND CONDITIONS
+--------------------------------------VANILLA BLIND CONDITIONS-------------------------------------
 
 local function IsCurseOfBlindGlobal()
     for _, _ in pairs(isCurseOfBlindNotGlobal_Tickets) do
@@ -240,20 +247,11 @@ local function ShouldIsBlindPedestalBeOptimized()
     return true
 end
 
-local function IsBlindPedestal(EntityPickup)
-    if ReactionAPI.UserSettings.cOptimizeIsBlindPedestal and ShouldIsBlindPedestalBeOptimized() then
-        if Game():GetLevel():GetStageType() < StageType.STAGETYPE_REPENTANCE then
-            return false
-        end
-        if Game():GetRoom():GetType() ~= RoomType.ROOM_TREASURE then
-            return false
-        end
-    end
-    local pedestalSprite = EntityPickup:GetSprite()
-    blindCollectibleSprite:SetFrame(pedestalSprite:GetAnimation(), pedestalSprite:GetFrame())
+local function CompareWithQuestionMarkSprite(CollectibleSprite)
+    blindCollectibleSprite:SetFrame(CollectibleSprite:GetAnimation(), CollectibleSprite:GetFrame())
     for i = -70, 0, 2 do
         local qcolor = blindCollectibleSprite:GetTexel(Vector(0, i), Vector.Zero, 1, 1)
-        local ecolor = pedestalSprite:GetTexel(Vector(0, i), Vector.Zero, 1, 1)
+        local ecolor = CollectibleSprite:GetTexel(Vector(0, i), Vector.Zero, 1, 1)
         if qcolor.Red ~= ecolor.Red or qcolor.Green ~= ecolor.Green or qcolor.Blue ~= ecolor.Blue then
             return false
         end
@@ -261,9 +259,36 @@ local function IsBlindPedestal(EntityPickup)
     return true
 end
 
+local function IsBlindPedestal(EntityPickup)
+end
+
+if REPENTOGON then
+    IsBlindPedestal = function(EntityPickup)
+        if curseOfBlind then
+            if EntityPickup:IsBlind() then
+                return true
+            end
+            return CompareWithQuestionMarkSprite(EntityPickup:GetSprite())
+        end
+        return EntityPickup:IsBlind()
+    end
+else
+    IsBlindPedestal = function(EntityPickup)
+        if ReactionAPI.UserSettings.cOptimizeIsBlindPedestal and ShouldIsBlindPedestalBeOptimized() then
+            if not ReactionAPI.Utilities.CanBlindCollectiblesSpawnInTreasureRoom() then
+                return false
+            end
+            if Game():GetRoom():GetType() ~= RoomType.ROOM_TREASURE then
+                return false
+            end
+        end
+        return CompareWithQuestionMarkSprite(EntityPickup:GetSprite())
+    end
+end
+
 ReactionAPI.AddBlindCondition(IsBlindPedestal, evaluatePerCollectible)
 
--- CHECKS
+----------------------------------------------CHECKS-----------------------------------------------
 
 local function IsTouchedCollectible(EntityPickup) --OnCollectibleUpdate() --HandleShopItems()
     return EntityPickup.Touched or EntityPickup.SubType == 0
@@ -317,7 +342,20 @@ local function EvaluateGloballyBlindConditions() --OnLatePostUpdate()
     end
 end
 
--- SET
+local function IsDeathCertificateDimension()
+end
+
+if REPENTOGON then
+    IsDeathCertificateDimension = function()
+        return Game():GetLevel():GetDimension() == Dimension.DEATH_CERTIFICATE
+    end
+else
+    IsDeathCertificateDimension = function()
+        return Game():GetLevel():GetCurrentRoomDesc().Data.Name == 'Death Certificate'
+    end
+end
+
+------------------------------------------------SET------------------------------------------------
 
 local function SetCollectibleQualityStatus(CollectibleID, IsBlind, IsNew) --SetQualityStatus()
     ItemQuality = ReactionAPI.CollectibleData[CollectibleID] or ReactionAPI.QualityStatus.GLITCHED
@@ -357,7 +395,11 @@ local function SetBestCollectibleQuality() --OnPostUpdate()
     cBestQuality[absolute] = math.max(cBestQuality[visible], cBestQuality[blind])
 end
 
--- RESET
+local function SetGloballyBlindTickets() --OnPostUpdate()
+    ReactionAPI.SetIsCurseOfBlindGlobal(not IsDeathCertificateDimension(), "DeathCertificateDimension")
+end
+
+-----------------------------------------------RESET-----------------------------------------------
 
 local function ResetUpdateLocalVariables() --OnLatePostUpdate() --FullReset()
     onCollectibleUpdate_FirstExecution = true
@@ -387,7 +429,7 @@ local function FullReset()  --OnLatePostUpdate() --ResetOnNewRoom() --HandleRequ
     PostCompletedReset()
 end
 
--- HANDLERS
+---------------------------------------------HANDLERS----------------------------------------------
 
 local function HandleRequestedGlobalResets() --OnCollectibleUpdate()
     if onCollectibleUpdate_FirstExecution then
@@ -426,15 +468,39 @@ local function HandleRequestedPickupResets() --OnLatePostUpdate()
     end
 end
 
--- CALLBACK
+----------------------------------------------PROFILE----------------------------------------------
+
+local function ProfileCollectibleUpdate()
+end
+
+if PROFILE then
+    ProfileCollectibleUpdate = function()
+        if numCollectibleUpdates == 0 then
+            updateCycle_ProfileTimeStart = Isaac.GetTime()
+        end
+        numCollectibleUpdates = numCollectibleUpdates + 1
+    end
+end
+
+local function PrintCollectibleUpdateProfile()
+end
+
+if PROFILE then
+    PrintCollectibleUpdateProfile = function()
+        Isaac.DebugString("Completed ReactionAPI Update Cycle in : " .. Isaac.GetTime() - updateCycle_ProfileTimeStart .. " ms with " .. numCollectibleUpdates .. " Executions")
+        updateCycle_ProfileTimeStart = Isaac.GetTime()
+        numCollectibleUpdates = 0
+    end
+end
+
+---------------------------------------------CALLBACK----------------------------------------------
 
 local function RecordPoofPosition(_, EntityEffect)
---    Isaac.DebugString("PoofInit " .. tostring(EntityEffect.Position))
     table.insert(poofPositions, EntityEffect.Position)
 end
 
 local function OnCollectibleUpdate(_, EntityPickup)
---    Isaac.DebugString("CollectibleUpdate " .. tostring(EntityPickup.Position))
+    ProfileCollectibleUpdate()
     if requestedGlobalReset then
         HandleRequestedGlobalResets()
     end
@@ -472,7 +538,7 @@ local function OnCollectibleUpdate(_, EntityPickup)
         blindPedestals[EntityPickup.Index] = nil
     end
     if blindPedestals[EntityPickup.Index] ~= nil then
-        isBlind = blindPedestals[EntityPickup.Index]
+        isBlind = true
     else
         isBlind = IsBlindCollectible(EntityPickup)
         if isBlind then
@@ -487,17 +553,18 @@ local function OnCollectibleUpdate(_, EntityPickup)
 end
 
 local function OnPostUpdate()
---    Isaac.DebugString("PostUpdate")
     HandleNonExistentPedestals()
     SetQualityStatus()
     HandleOverwriteFunctions()
     SetAbsoluteQualityStatus()
     SetBestCollectibleQuality()
+    PrintCollectibleUpdateProfile()
 end
 
 local function OnLatePostUpdate()
---    Isaac.DebugString("LatePostUpdate")
+    SetGloballyBlindTickets()
     EvaluateGloballyBlindConditions()
+    curseOfBlind = Game():GetLevel():GetCurses() & LevelCurse.CURSE_OF_BLIND ~= 0
     if delayRequestedGlobalReset or requestedGlobalReset then
         FullReset()
     else
@@ -507,12 +574,10 @@ local function OnLatePostUpdate()
 end
 
 local function ResetOnNewRoom()
---    Isaac.DebugString("NewRoom")
     FullReset()
 end
 
 local function ResetOnExit()
---    Isaac.DebugString("GameExit")
     FullReset()
 end
 
@@ -528,11 +593,11 @@ ReactionAPI:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, ResetOnNewRoom)
 
 ReactionAPI:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT, ResetOnExit)
 
------------------------
---OVERWRITE FUNCTIONS--
------------------------
+---------------------------------------------------------------------------------------------------
+----------------------------------------OVERWRITE FUNCTIONS----------------------------------------
+---------------------------------------------------------------------------------------------------
 
--- COMPATIBILITY
+------------------------------------------COMPATIBILITY--------------------------------------------
 
 local eternalCandleID
 
@@ -567,11 +632,11 @@ end
 
 ReactionAPI:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, ApplyOverwrite)
 
----------
---DEBUG--
----------
+---------------------------------------------------------------------------------------------------
+-----------------------------------------------DEBUG-----------------------------------------------
+---------------------------------------------------------------------------------------------------
 
--- TICKETS
+----------------------------------------------TICKETS----------------------------------------------
 
 local function DebugPrintGlobalBlindTickets()
     Isaac.DebugString("GlobalBlind Tickets:")

@@ -8,10 +8,10 @@
 A matrix containing the Quality Status of the room based on the visibility and on the filter applied to the pickups.
 
                 
- | Visible | Blind | Absolute
+|| Visible | Blind | Absolute
 ------------- | -------------  | -------------  | -------------
-New  | 0x000000 | 0x000000 | 0x000000
-All  | 0x000000 | 0x000000 | 0x000000
+| New  | 0x000000 | 0x000000 | 0x000000
+| All  | 0x000000 | 0x000000 | 0x000000
                 
 
 The Quality Status itself is a bit flag that is set if at least one item of a specific quality is present in the current room.
@@ -59,6 +59,22 @@ CollectibleID [Key]  | CycleOrder (integer)
                 
 
 Due to the way this table has been implemented, in the event of duplicate Collectibles within the same Cycle, they will all be treated as the same collectible. Therefore, it is more accurate to say that this table lists all the unique Collectibles present in the Cycle.
+
+🛑***WARNING:*** Given that this implementation of **cData** doesn't account for duplicate Collectibles in the same cycle, however it is a necessary evil due to the very little information the base API gives us, however it is important to note that this Data Structure is going to be ⚠️**Prone to Changes**⚠️ in the event that more information related to the Cycle of EntityPickups is exposed to the API.
+
+Ideally we intend to reach this data structure:
+
+CycleOrder [Key]  | CollectibleID (integer)
+------------- | -------------
+1  | 114
+2  | 628
+
+Therefore, it is suggested to keep an eye out for any updates regarding the implementation of the
+[collectiblesInRoom](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#collectiblesInRoom) table if you plan to use it in your mod.
+
+🛑***WARNING:*** The Isaac Script Extender **[REPENTOGON](https://repentogon.com/docs.html)** gives access to the full Cycle Data as of version 1.0.3. As such when using REPENTOGON the table will use the Ideal Structure of Cycle Order (key) -> CollectibleID (value).
+
+Use the **REPENTOGON** global variable to create a branch that handles this discrepancy in the way the Data Structure is implemented when REPENTOGON is installed.
 
 This table is part of [collectiblesInRoom](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#collectiblesInRoom).
 
@@ -147,6 +163,7 @@ ReactionAPI.Interface.cGetQualityStatus(Visibility, Filter)
 ```
                 
 @***Visibility:*** This variable defines the visibility of the quality status you want to get
+
 @***Filter:*** This variable defines what type of filter to apply on the [cQualityStatus](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#cQualityStatus).
 
 @***Return:*** The return type depends on whether or not all, one or neither of the parameters as been set.
@@ -203,8 +220,11 @@ ReactionAPI.Interface.cCheckForAbsence(AbsencePartition, Visibility, Filter, All
 ```
                 
 @***Partition:*** A bit flag representing the **Qualities** that need to be present/absent.
+
 @***Visibility:*** The visibility of the ***cQualityStatus*** you want to check.
+
 @***Filter:*** The filter you want to apply on the ***cQualityStatus*** you want to check.
+
 @***All:*** A boolean that represent whether or not all flags specified in ***Partition*** must be present/absent for the ***Return*** to be true.
 
 @***Return:*** A boolean that represent whether or not the qualities in the ***Partition***, based on the ***All*** it will return true if All are present/absent or if only one of them is present/absent.
@@ -225,8 +245,9 @@ ReactionAPI.Interface.cCheckForAbsence(AbsencePartition, Visibility, Filter, All
 ReactionAPI.Interface.AddBlindCondition(Function, Global)
 ```
                 
-@***Function:*** Must be a function that **returns** a boolean value: true if blind, false if visible.
+@***Function:*** Must be a function that **returns** a boolean value: true if blind, false if visible.  
 If ***Global*** Is set to false then the [EntityPickup](https://wofsauge.github.io/IsaacDocs/rep/EntityPickup.html) will be passed to the function as a parameter.
+
 @***Global:*** set whether or not the function must be added to [IsGloballyBlind](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#IsGloballyBlind), or to [IsCollectibleBlind](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#IsCollectibleBlind)
 
 ℹ️ ***INFO:*** The last function added is the first one to be executed, with the default function being always the last one.
@@ -244,6 +265,7 @@ As long as there is even a single Ticket in the table, the default function for 
 Given that the function is meant to prevent huge lag spikes caused by the evaluation of the default function for [IsCollectibleBlind](https://github.com/Guantol-Lemat/Isaac.ReactionAPI/blob/master/doc.md#IsCollectibleBlind) it is suggested for this to be set as false only when absolutely necessary, and to restore it to true when it is no longer needed.
 
 @***Answer:*** A boolean that represent whether a ticket should be added or removed
+
 @***TicketID:*** A value of any type that represent your request to Set IsCurseOfBlind as not global, this value should be **UNIQUE** across the global scope, as duplicate TicketIDs will be treated as the same, meaning that if two mods use the same TicketID they will ultimately meddle in each other\`s affairs. It is highly suggested for you to use your mod\`s name as a TicketID.
 
 ℹ️ ***INFO:*** You can set ***Answer*** as true even if you have yet to add a ticket to the table, and you can set it to false even if there already is a ticket with that ID, as such it is unnecessary to create checks to see if a ticket is present or not within the table.
@@ -259,6 +281,7 @@ As long as there is even a single Ticket in the table, the default function for 
 Given that the optimization is meant to prevent huge lag spikes caused by the evaluation of the main part of the function (the comparison between the Collectible sprite and the Blind Question Mark sprite), it is suggested for this to be set as false only when absolutely necessary, and to restore it to true when it is no longer needed.
 
 @***Answer:*** A boolean that represent whether a ticket should be added or removed
+
 @***TicketID:*** A value of any type that represent your request to Set IsCurseOfBlind as not global, this value should be **UNIQUE** across the global scope, as duplicate TicketIDs will be treated as the same, meaning that if two mods use the same TicketID they will ultimately meddle in each other\`s affairs. It is highly suggested for you to use your mod\`s name as a TicketID.
 
 ℹ️ ***INFO:*** For reference the optimization does not execute the main part of the function if the player is not in an Alt Path Treasure Room, and will instead immediately evaluate as false.
@@ -278,6 +301,7 @@ This function should only be used when the mod is not able to properly Add, Dele
 When performing a reset all data related to the EntityIDs will be deleted and recalculated on the next **MC_POST_PICKUP_UPDATE** or, in the case in which **Global** is set to true, all the data collected in those tables will be deleted.
 
 @***Global:*** Set whether or not the mod should delete the data relative to the EntityIDs specified, or if it must perform a full wipe of the **CollectibleData**.
+
 @***EntityIDs:*** Only necessary and relevant when ***Global*** is set to false, it its a table containing the EntityPickup IDs that need to be wiped, there can be as few as one and as many as possible, you will not stumble upon an Error if a specified Entity ID is not actually a Collectible within the room.
 
 ⚠️***NOTE:*** A Reset will never occur immediately, but will only be actualized either on the first **MC_POST_PICKUP_UPDATE** or in a **LATE** **MC_POST_UPDATE** callback, whichever comes first.
@@ -289,15 +313,21 @@ When performing a reset all data related to the EntityIDs will be deleted and re
 These are a collection of utility functions that are used in the implementation of the mod, and are made globally available to everyone who whishes to use them.
 However it is not suggested to impose ReactionAPI as a requirement for your mod to work if these are the only functions being used. Instead copy the contents of *reactionAPI_scripts\functions\utilities.lua* inside of your own mod, and replace the ReactionAPI mod reference with that of your mod.
 
++ ##### DeepCopy
+
+A function that allows the creation of a copy of a table by value instead of by reference
+
+```lua
+TableCopy = ReactionAPI.Utilities.DeepCopy(Table)
+```
+
 + ##### GetTableLength
 
 A function that can get the number of entries in a table similar to the # operator, but it works even with non numerical and non contiguous indices.
-
                 
 ```lua
 ReactionAPI.Utilities.GetTableLength(Table)
 ```
-                
 
 + ##### AnyPlayerHasCollectible
 
@@ -308,6 +338,14 @@ An equivalent of the EntityPlayer:HasCollectible() function that however queries
 ReactionAPI.Utilities.AnyPlayerHasCollectible(CollectibleID, IgnoreModifiers)
 ```
                 
++ ##### AnyPlayerHasTrinket
+
+An equivalent of the EntityPlayer:HasTrinket() function that however queries every EntityPlayer currently in the game.
+
+                
+```lua
+ReactionAPI.Utilities.AnyPlayerHasTrinket(TrinketID, IgnoreModifiers)
+```
 
 + ##### GetMaxCollectibleID
 
@@ -316,7 +354,16 @@ A function that returns the highest valid CollectibleID / CollectibleType, if an
                 
 ```lua
 ReactionAPI.Utilities.GetMaxCollectibleID()
-```
-                
+```  
 
 ⚠️***NOTE:*** Because of how item Types are initialized, the function that calculates the MaxCollectibleID has to be executed after the player has started a new or continued game, as such if you try to call this function before then nil will be returned.
+
++ ##### CanBlindCollectiblesSpawnInTreasureRoom
+
+A function that determines if the vanilla conditions are met for there to be a chance to spawn a Blind Pedestal when inside of a Treasure Room
+
+```lua
+ReactionAPI.Utilities.CanBlindCollectiblesSpawnInTreasureRoom()
+``` 
+
+⚠️***NOTE:*** This does not check if the Player is inside a Treasure Room.

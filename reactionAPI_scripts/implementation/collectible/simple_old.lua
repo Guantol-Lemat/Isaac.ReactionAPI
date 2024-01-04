@@ -217,7 +217,7 @@ local function onFinalUpdate()
 
     ReactionAPI.changed_bestCollectibleQuality = previous_bestCollectibleQuality ~= ReactionAPI.bestCollectibleQuality
     ReactionAPI.changed_bestCollectibleQualityBlind = previous_bestCollectibleQualityBlind ~= ReactionAPI.bestCollectibleQualityBlind
-    
+
     ReactionAPI.changed_cQualityPresence = previous_cQualityPresence ~= ReactionAPI.cQualityPresence
     ReactionAPI.changed_cBlindQualityPresence = previous_cBlindQualityPresence ~= ReactionAPI.cBlindQualityPresence
 
@@ -250,7 +250,7 @@ local function ResetOnCollision(_, EntityPlayer)
         isHoldingCollectible = EntityPlayer.QueuedItem.Item:IsCollectible()
     else
         isHoldingCollectible = false
-    end 
+    end
     if isHoldingCollectible and not previous_isHoldingCollectible then
         CollectibleReset()
     end

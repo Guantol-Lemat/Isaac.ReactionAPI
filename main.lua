@@ -1,3 +1,7 @@
+if not REPENTANCE then
+    return
+end
+
 ReactionAPI = RegisterMod("ReactionAPI", 1)
 
 ReactionAPI.ModVersion = "1.0.0"
