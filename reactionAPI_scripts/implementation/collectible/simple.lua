@@ -181,9 +181,15 @@ function ReactionAPI.SetIsCurseOfBlindGlobal(IsGlobal, TicketID)
     end
 
     if IsGlobal then
+        if isCurseOfBlindNotGlobal_Tickets[TicketID] == nil then
+            return
+        end
         isCurseOfBlindNotGlobal_Tickets[TicketID] = nil
         Isaac.DebugString("[SetIsCurseOfBlindGlobal] Ticket: " .. TicketID .. " Removed")
     else
+        if isCurseOfBlindNotGlobal_Tickets[TicketID] == true then
+            return
+        end
         isCurseOfBlindNotGlobal_Tickets[TicketID] = true
         Isaac.DebugString("[SetIsCurseOfBlindGlobal] Ticket: " .. TicketID .. " Added")
     end
@@ -199,9 +205,15 @@ function ReactionAPI.ShouldIsBlindPedestalBeOptimized(Answer, TicketID)
     end
 
     if Answer then
+        if shouldIsBlindPedestalNotOptimize_Tickets[TicketID] == nil then
+            return
+        end
         shouldIsBlindPedestalNotOptimize_Tickets[TicketID] = nil
         Isaac.DebugString("[ShouldIsBlindPedestalBeOptimized] Ticket: " .. TicketID .. " Removed")
     else
+        if shouldIsBlindPedestalNotOptimize_Tickets[TicketID] == true then
+            return
+        end
         shouldIsBlindPedestalNotOptimize_Tickets[TicketID] = true
         Isaac.DebugString("[ShouldIsBlindPedestalBeOptimized] Ticket: " .. TicketID .. " Added")
     end
@@ -294,6 +306,35 @@ local function IsTouchedCollectible(EntityPickup) --OnCollectibleUpdate() --Hand
     return EntityPickup.Touched or EntityPickup.SubType == 0
 end
 
+local function CompareCycleData(EntityPickup, CycleNumber) --REPENTOGON Only
+    if CycleNumber == 1 then
+        return collectiblesInRoom[EntityPickup.Index][1] == EntityPickup.SubType
+    end
+    for cycleOrder, collectibleID in ipairs(EntityPickup:GetCollectibleCycle()) do
+        if collectiblesInRoom[EntityPickup.Index][cycleOrder] ~= collectibleID then
+            return false
+        end
+    end
+    return true
+end
+
+local function IsNewCollectible(EntityPickup) --OnCollectibleUpdate()
+end
+
+if REPENTOGON then
+    IsNewCollectible = function(EntityPickup)
+        if collectiblesInRoom[EntityPickup.Index] == nil then
+            return true
+        end
+        local CycleNumber = #EntityPickup:GetCollectibleCycle()
+        CycleNumber = CycleNumber == 0 and 1 or CycleNumber
+        if CycleNumber ~= #collectiblesInRoom[EntityPickup.Index] then
+            return true
+        end
+        return not CompareCycleData(EntityPickup, CycleNumber)
+    end
+end
+
 local function IsNewCollectible(EntityPickup) --OnCollectibleUpdate()
     if collectiblesInRoom[EntityPickup.Index] == nil then
         return true
@@ -356,6 +397,65 @@ else
 end
 
 ------------------------------------------------SET------------------------------------------------
+
+local function SetCollectibleData(EntityPickup)
+end
+
+if REPENTOGON then
+    SetCollectibleData = function(EntityPickup)
+        roomPedestals[EntityPickup.Index] = EntityPickup
+
+        if EntityPickup:IsShopItem() then
+            shopItems[EntityPickup.Index] = EntityPickup
+        end
+
+        if IsNewCollectible(EntityPickup) or HasResetBeenRequested(EntityPickup) then
+            blindPedestals[EntityPickup.Index] = nil
+            local isBlind = IsBlindCollectible(EntityPickup)
+            if isBlind then
+                blindPedestals[EntityPickup.Index] = EntityPickup
+            end
+
+            if #EntityPickup:GetCollectibleCycle() == 0 then
+                collectiblesInRoom[EntityPickup.Index][1] = EntityPickup.SubType
+                newCollectibles[isBlind][EntityPickup.SubType] = true
+            else
+                for cycleOrder, collectibleID in ipairs(EntityPickup:GetCollectibleCycle()) do
+                    collectiblesInRoom[EntityPickup.Index][cycleOrder] = EntityPickup.SubType
+                    newCollectibles[isBlind][EntityPickup.SubType] = true
+                end
+            end
+        end
+    end
+end
+
+local function SetCollectibleData(EntityPickup)
+    local isBlind = nil --NOT INITIALIZED YET
+
+    roomPedestals[EntityPickup.Index] = EntityPickup
+
+    if EntityPickup:IsShopItem() then
+        shopItems[EntityPickup.Index] = EntityPickup
+    end
+
+    if IsNewCollectible(EntityPickup) or HasResetBeenRequested(EntityPickup) then
+        collectiblesInRoom[EntityPickup.Index] = {}
+        blindPedestals[EntityPickup.Index] = nil
+    end
+    if blindPedestals[EntityPickup.Index] ~= nil then
+        isBlind = true
+    else
+        isBlind = IsBlindCollectible(EntityPickup)
+        if isBlind then
+            blindPedestals[EntityPickup.Index] = EntityPickup
+        end
+    end
+
+    if collectiblesInRoom[EntityPickup.Index][EntityPickup.SubType] == nil then
+        newCollectibles[isBlind][EntityPickup.SubType] = true
+        collectiblesInRoom[EntityPickup.Index][EntityPickup.SubType] = ReactionAPI.Utilities.GetTableLength(collectiblesInRoom[EntityPickup.Index]) + 1
+    end
+end
 
 local function SetCollectibleQualityStatus(CollectibleID, IsBlind, IsNew) --SetQualityStatus()
     ItemQuality = ReactionAPI.CollectibleData[CollectibleID] or ReactionAPI.QualityStatus.GLITCHED
@@ -499,8 +599,33 @@ local function RecordPoofPosition(_, EntityEffect)
     table.insert(poofPositions, EntityEffect.Position)
 end
 
+local function onCollectibleUpdate(_, EntityPickup)
+end
+
+if REPENTOGON then
+    onCollectibleUpdate = function(_, EntityPickup)
+        ProfileCollectibleUpdate()
+
+        if requestedGlobalReset then
+            HandleRequestedGlobalResets()
+        end
+        onCollectibleUpdate_FirstExecution = false
+
+        if IsTouchedCollectible(EntityPickup) then
+            roomPedestals[EntityPickup.Index] = nil
+            collectiblesInRoom[EntityPickup.Index] = nil
+            shopItems[EntityPickup.Index] = nil
+            blindPedestals[EntityPickup.Index] = nil
+            return
+        end
+
+        SetCollectibleData(EntityPickup)
+    end
+end
+
 local function OnCollectibleUpdate(_, EntityPickup)
     ProfileCollectibleUpdate()
+
     if requestedGlobalReset then
         HandleRequestedGlobalResets()
     end
@@ -525,31 +650,8 @@ local function OnCollectibleUpdate(_, EntityPickup)
         return
     end
 
-    local isBlind = nil --NOT INITIALIZED YET
+    SetCollectibleData(EntityPickup)
 
-    roomPedestals[EntityPickup.Index] = EntityPickup
-
-    if EntityPickup:IsShopItem() then
-        shopItems[EntityPickup.Index] = EntityPickup
-    end
-
-    if IsNewCollectible(EntityPickup) or HasResetBeenRequested(EntityPickup) then
-        collectiblesInRoom[EntityPickup.Index] = {}
-        blindPedestals[EntityPickup.Index] = nil
-    end
-    if blindPedestals[EntityPickup.Index] ~= nil then
-        isBlind = true
-    else
-        isBlind = IsBlindCollectible(EntityPickup)
-        if isBlind then
-            blindPedestals[EntityPickup.Index] = EntityPickup
-        end
-    end
-
-    if collectiblesInRoom[EntityPickup.Index][EntityPickup.SubType] == nil then
-        newCollectibles[isBlind][EntityPickup.SubType] = true
-        collectiblesInRoom[EntityPickup.Index][EntityPickup.SubType] = ReactionAPI.Utilities.GetTableLength(collectiblesInRoom[EntityPickup.Index]) + 1
-    end
 end
 
 local function OnPostUpdate()
