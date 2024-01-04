@@ -27,7 +27,7 @@ Additionally the mod keeps track of all the Item Pedestals present within the cu
 Visit the [url=https://github.com/Guantol-Lemat/Isaac.ReactionAPI]Github repository[/url] for more info on how to implement the API within your mod.
 
 This mod also has built-in compatibility with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2724039000]Cursed Collection[/url] treating Items during Curse of the Blight as Blind items.</description>
-    <version>1.0.1</version>
+    <version>1.2.1</version>
     <visibility>Public</visibility>
     <tag id="Lua"/>
     <tag id="Items"/>
