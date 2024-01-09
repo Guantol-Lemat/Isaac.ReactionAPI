@@ -1,5 +1,8 @@
 local font = Font()
 font:Load("font/luaminioutlined.fnt")
+local screenSize
+local screenCenter
+local renderedLines = 4
 local TEXT_X_DEFAULT = 260
 local TEXT_Y_DEFAULT = 292
 local TEXT_X = TEXT_X_DEFAULT
@@ -9,6 +12,7 @@ local TEXT_COLOR = KColor(1, 1, 1, 1)
 
 local postRenderCalls = 0
 local dataFetched = false
+local lineOffset = 10
 
 local cBestVisibleQuality
 local cBestBlindQuality
@@ -17,6 +21,9 @@ local collectiblesInRoom
 local newCollectibles
 local blindPedestals
 local shopItems
+
+local craneBestQuality
+local craneQualityStatus
 
 local visible = ReactionAPI.Context.Visibility.VISIBLE
 local blind = ReactionAPI.Context.Visibility.BLIND
@@ -72,20 +79,64 @@ local Keybinds = {
 }
 
 local function FetchData()
-    cBestVisibleQuality = ReactionAPI.GetCollectibleBestQuality(ReactionAPI.Context.Visibility.VISIBLE)
-    cBestBlindQuality = ReactionAPI.GetCollectibleBestQuality(ReactionAPI.Context.Visibility.BLIND)
-    cQualityStatus = ReactionAPI.GetCollectibleQualityStatus()
-    collectiblesInRoom, newCollectibles, blindPedestals, shopItems = ReactionAPI.GetCollectibleData()
+    local collectibleData = ReactionAPI.GetCollectibleData()
+
+    cBestVisibleQuality = collectibleData.BestQuality[ReactionAPI.Context.Visibility.VISIBLE]
+    cBestBlindQuality = collectibleData.BestQuality[ReactionAPI.Context.Visibility.BLIND]
+    cQualityStatus = collectibleData.QualityStatus
+    collectiblesInRoom = collectibleData.InRoom
+    newCollectibles = collectibleData.New
+    blindPedestals = collectibleData.Blind
+    shopItems = collectibleData.Shop
+
+    local craneData = ReactionAPI.GetSlotData(ReactionAPI.SlotType.CRANE_GAME)
+    craneBestQuality = craneData.BestQuality
+    craneQualityStatus = craneData.QualityStatus
+
     dataFetched = true
 end
 
+local function getScreenSize()
+    if REPENTANCE then
+        return Vector(Isaac.GetScreenWidth(), Isaac.GetScreenHeight())
+    end
+
+    -- ab+ / based off of code from kilburn
+    local room = Game():GetRoom()
+    local pos = room:WorldToScreenPosition(Vector(0,0)) - room:GetRenderScrollOffset() - Game().ScreenShakeOffset
+
+    local rx = pos.X + 60 * 26 / 40
+    local ry = pos.Y + 140 * (26 / 40)
+
+    return Vector(rx * 2 + 13 * 26, ry * 2 + 7 * 26)
+end
+
+local function IncreaseLine()
+    TEXT_Y = TEXT_Y + lineOffset
+    renderedLines = renderedLines + 1
+end
+
 local function ResetPrintedTextPosition()
-    TEXT_Y = TEXT_Y_DEFAULT
+    local renderAtBottom = true
+    local yOffset = 0 -- from top or bottom
+
+    screenSize = getScreenSize()
+    screenCenter = (screenSize.X / 2)
+    TEXT_Y = renderAtBottom and screenSize.Y - (10 * renderedLines) - yOffset or yOffset
 end
 
 local function PrintBestQuality()
-    font:DrawString("Visible Collectible Quality:" .. debugLines[cBestVisibleQuality], TEXT_X, TEXT_Y - LINE_HEIGHT, TEXT_COLOR)
-    font:DrawString("Blind Collectible Quality:" .. debugLines[cBestBlindQuality], TEXT_X, TEXT_Y - LINE_HEIGHT + 10 , TEXT_COLOR)
+    local visibleCollectibleQualityString = "Visible Collectible Quality:" .. debugLines[cBestVisibleQuality]
+    TEXT_X = (screenCenter) - (font:GetStringWidthUTF8(visibleCollectibleQualityString) / 2)
+    font:DrawString(visibleCollectibleQualityString, TEXT_X, TEXT_Y - LINE_HEIGHT, TEXT_COLOR)
+
+    IncreaseLine()
+
+    local blindCollectibleQualityString = "Blind Collectible Quality:" .. debugLines[cBestBlindQuality]
+    TEXT_X = (screenCenter) - (font:GetStringWidthUTF8(blindCollectibleQualityString) / 2)
+    font:DrawString(blindCollectibleQualityString, TEXT_X, TEXT_Y - LINE_HEIGHT , TEXT_COLOR)
+
+    IncreaseLine()
 end
 
 local function PrintQualityStatus()
@@ -97,7 +148,11 @@ local function PrintQualityStatus()
             qualityPresenceString = qualityPresenceString .. "0"
         end
     end
-    font:DrawString(qualityPresenceString, TEXT_X, TEXT_Y - LINE_HEIGHT , TEXT_COLOR)
+    TEXT_X = (screenCenter) - (font:GetStringWidthUTF8(qualityPresenceString) / 2)
+    font:DrawString(qualityPresenceString, TEXT_X, TEXT_Y - LINE_HEIGHT, TEXT_COLOR)
+
+    IncreaseLine()
+
     local blindQualityPresenceString = "BlindCollectiblePresence: 0x"
     for i = 0, 5 do
         if cQualityStatus[blind][all] & (1 << i) ~= 0 then
@@ -106,7 +161,11 @@ local function PrintQualityStatus()
             blindQualityPresenceString = blindQualityPresenceString .. "0"
         end
     end
-    font:DrawString(blindQualityPresenceString, TEXT_X, TEXT_Y - LINE_HEIGHT + 10 , TEXT_COLOR)
+    TEXT_X = (screenCenter) - (font:GetStringWidthUTF8(blindQualityPresenceString) / 2)
+    font:DrawString(blindQualityPresenceString, TEXT_X, TEXT_Y - LINE_HEIGHT, TEXT_COLOR)
+
+    IncreaseLine()
+
     local absoluteQualityPresenceString = "AbsoluteCollectiblePresence: 0x"
     for i = 0, 5 do
         if cQualityStatus[absolute][all] & (1 << i) ~= 0 then
@@ -115,7 +174,25 @@ local function PrintQualityStatus()
             absoluteQualityPresenceString = absoluteQualityPresenceString .. "0"
         end
     end
-    font:DrawString(absoluteQualityPresenceString, TEXT_X, TEXT_Y - LINE_HEIGHT + 20 , TEXT_COLOR)
+    TEXT_X = (screenCenter) - (font:GetStringWidthUTF8(absoluteQualityPresenceString) / 2)
+    font:DrawString(absoluteQualityPresenceString, TEXT_X, TEXT_Y - LINE_HEIGHT, TEXT_COLOR)
+
+    IncreaseLine()
+end
+
+local function PrintCraneQualityStatus()
+    local qualityPresenceString = "CranePresence: 0x"
+    for i = 0, 5 do
+        if craneQualityStatus[all] & (1 << i) ~= 0 then
+            qualityPresenceString = qualityPresenceString .. "1"
+        else
+            qualityPresenceString = qualityPresenceString .. "0"
+        end
+    end
+    TEXT_X = (screenCenter) - (font:GetStringWidthUTF8(qualityPresenceString) / 2)
+    font:DrawString(qualityPresenceString, TEXT_X, TEXT_Y - LINE_HEIGHT, TEXT_COLOR)
+
+    IncreaseLine()
 end
 
 local function DebugPrintPresenceList()
@@ -159,9 +236,10 @@ local function DebugText()
     ResetPrintedTextPosition()
     postRenderCalls = postRenderCalls >= 1 and 0 or postRenderCalls + 1
     if dataFetched then --To avoid Errors on Startup
-        PrintBestQuality()
-        TEXT_Y = TEXT_Y + 20
-        PrintQualityStatus()
+        -- PrintBestQuality() -- 2
+        PrintQualityStatus() -- 3
+        PrintCraneQualityStatus() -- 1
+        renderedLines = 4
         if NewCollectiblesSpawned() then
             DebugPrintPresenceList()
             DebugPrintNewCollectibles()

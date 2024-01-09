@@ -27,7 +27,7 @@ ReactionAPI.Interface.cGetQualityStatus = ReactionAPI.GetCollectibleQualityStatu
 --  Calling this function anywhere else might lead to the retrieval of incorrect data
 --  This function returns 4 tables each needed to understand the full situation in the current room
 --- @return table
---- @usage collectiblesInRoom, newCollectibles, blindPedestals, shopItems = ReactionAPI.Interface.GetCollectibleData()
+--- @usage collectibleData = ReactionAPI.Interface.GetCollectibleData()
 ReactionAPI.Interface.GetCollectibleData = ReactionAPI.GetCollectibleData
 
 --- This function should be called during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
@@ -48,7 +48,7 @@ ReactionAPI.Interface.cCheckForPresence = ReactionAPI.CheckForCollectiblePresenc
 
 --- This function should be called during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
 --  Calling this function anywhere else might lead to the retrieval of incorrect data
---  If there are multiple flags set in the partition and the AllAbsent parameter can be set to true so that the function will only return true if all Qualities are present
+--  If there are multiple flags set in the partition then the AllAbsent parameter can be set to true so that the function will only return true if all Qualities are present
 --- @param AbsencePartition ReactionAPI.QualityPartitions @if nil then the function will throw an ERROR and return nil
 --- @param Visibility ReactionAPI.Context.Visibility @default ReactionAPI.Context.Visibility.VISIBLE
 --- @param Filter ReactionAPI.Context.Filter @default false
@@ -61,6 +61,29 @@ ReactionAPI.Interface.cCheckForPresence = ReactionAPI.CheckForCollectiblePresenc
 --              --[[ custom code ]]
 --         end
 ReactionAPI.Interface.cCheckForAbsence = ReactionAPI.CheckForCollectibleAbsence
+
+--- This function should be called during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
+--  Calling this function anywhere else might lead to the retrieval of incorrect data
+--- @param SlotType ReactionAPI.SlotType @cannot be ALL, returns nil if not set
+--- @return ReactionAPI.QualityStatus
+--- @see ReactionAPI.SlotType
+--- @see ReactionAPI.QualityStatus
+ReactionAPI.Interface.slotGetBestQuality = ReactionAPI.GetSlotBestQuality
+
+--- This function should be called during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
+--  Calling this function anywhere else might lead to the retrieval of incorrect data
+--- @param SlotType ReactionAPI.SlotType @cannot be ALL, returns nil if not set
+--- @param Filter ReactionAPI.Context.Filter @can be nil
+--- @return table or integer @an integer is returned if Filter is ~= nil
+--- @see ReactionAPI.SlotType
+--- @see ReactionAPI.Context.Filter
+ReactionAPI.Interface.slotGetQualityStatus = ReactionAPI.GetSlotQualityStatus
+
+--- This function should be called during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
+--  Calling this function anywhere else might lead to the retrieval of incorrect data
+--- @param SlotType ReactionAPI.SlotType
+--- @return table
+ReactionAPI.Interface.GetSlotData = ReactionAPI.GetSlotData
 
 --- Adds a condition, represented by a function that determines whether on that a collectible should be considered Blind
 --  The Function must return a boolean
@@ -98,6 +121,11 @@ ReactionAPI.Interface.SetIsCurseOfBlindGlobal = ReactionAPI.SetIsCurseOfBlindGlo
 --             ReactionAPI.Interface.ShouldIsBlindPedestalBeOptimized(true, "MyModTicket")
 --         end
 ReactionAPI.Interface.ShouldIsBlindPedestalBeOptimized = ReactionAPI.ShouldIsBlindPedestalBeOptimized
+
+--- Blind Data is update every LATE MC_POST_UPDATE, this is means that by design the Data collected by reaction API is using the
+--  evaluation from the previous update rather than the current one.
+--- @return table
+ReactionAPI.Interface.GetBlindData = ReactionAPI.GetBlindData()
 
 --- Should be used if your mod is initializing new collectibles or rerolling already existing ones and the implemented detection systems Fails to either delete or reset them in the collectiblesInRoom table
 --  If you are morphing an item in order to try and create a "Cycling" Item effect (Like Glitched Crow or Tainted Isaac) then you should not Request a Reset

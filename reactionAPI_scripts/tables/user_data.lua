@@ -1,11 +1,16 @@
 local json = require("json")
 local DeepCopy = ReactionAPI.Utilities.DeepCopy
 
+local removedInitModData = false
+
+ReactionAPI.ConfigVersion = "1.0.0"
+
 local firstStart = true
 
 ReactionAPI.DefaultUserSettings = {
     Version = ReactionAPI.ModVersion,
-    cImplementation = ReactionAPI.cImplementation,
+    ConfigVersion = ReactionAPI.ConfigVersion,
+--    cImplementation = ReactionAPI.cImplementation,
     cOptimizeIsBlindPedestal = true,
     cEternalBlindOverwrite = ReactionAPI.QualityStatus.QUALITY_2,
     cVanilla = {},
@@ -138,6 +143,9 @@ local function InitSaveData()
 end
 
 local function InitModData()
+    if removedInitModData then
+        return
+    end
 
     ReactionAPI.MaxCollectibleID = GetMaxCollectibleID()
 
@@ -153,10 +161,13 @@ local function InitModData()
     end
 
     ReactionAPI:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, InitSaveData)
-    ReactionAPI:RemoveCallback(ModCallbacks.MC_POST_NEW_ROOM, InitModData)
+    removedInitModData = true
+--    ReactionAPI:RemoveCallback(ModCallbacks.MC_POST_NEW_ROOM, InitModData)
 end
 
 local function SaveSettings()
+    ReactionAPI.CopyRunData()
+    ReactionAPI.UserSettings.RunData = DeepCopy(ReactionAPI.RunData)
     ReactionAPI:SaveData(json.encode(ReactionAPI.UserSettings))
 end
 

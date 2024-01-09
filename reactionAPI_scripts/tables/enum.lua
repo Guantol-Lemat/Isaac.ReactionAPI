@@ -8,12 +8,6 @@ ReactionAPI.QualityStatus = {
     QUALITY_4 = 4
 }
 
-ReactionAPI.Setting = {
-    DO_NOT = ReactionAPI.QualityStatus.QUALITY_0 - 1,
-    IGNORE = ReactionAPI.QualityStatus.QUALITY_4 + 1,
-    DEFAULT = ReactionAPI.QualityStatus.QUALITY_4 + 2
-}
-
 ReactionAPI.QualityPartitions = {
     GLITCHED = 0x01,
     QUALITY_0 = 0x02,
@@ -21,6 +15,17 @@ ReactionAPI.QualityPartitions = {
     QUALITY_2 = 0x08,
     QUALITY_3 = 0x10,
     QUALITY_4 = 0x20
+}
+
+ReactionAPI.SlotType = {
+    CRANE_GAME = 1,
+    ALL = 2
+}
+
+ReactionAPI.Setting = {
+    DO_NOT = ReactionAPI.QualityStatus.QUALITY_0 - 1,
+    IGNORE = ReactionAPI.QualityStatus.QUALITY_4 + 1,
+    DEFAULT = ReactionAPI.QualityStatus.QUALITY_4 + 2
 }
 
 ReactionAPI.CollectibleImplementations = {

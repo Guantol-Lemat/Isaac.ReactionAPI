@@ -1,8 +1,14 @@
+local log = require("reactionAPI_scripts.tools.log")
+local json = require("json")
+local DeepCopy = ReactionAPI.Utilities.DeepCopy
+
 ---------------------------------------------------------------------------------------------------
 ---------------------------------------------VARIABLES---------------------------------------------
 ---------------------------------------------------------------------------------------------------
 
 -----------------------------------------------DEBUG-----------------------------------------------
+
+local DEBUG = false
 
 local PROFILE = false
 local updateCycle_ProfileTimeStart = Isaac.GetTime()
@@ -15,9 +21,11 @@ local evaluatePerCollectible = false
 local visible = ReactionAPI.Context.Visibility.VISIBLE
 local blind = ReactionAPI.Context.Visibility.BLIND
 local absolute = ReactionAPI.Context.Visibility.ABSOLUTE
-local newPickupsOnly = ReactionAPI.Context.Filter.NEW
-local everyPickup = ReactionAPI.Context.Filter.ALL
+local filterNEW = ReactionAPI.Context.Filter.NEW
+local filterALL = ReactionAPI.Context.Filter.ALL
 local global = true
+
+local Crane = ReactionAPI.SlotType.CRANE_GAME
 
 ---------------------------------------------CONSTANTS---------------------------------------------
 
@@ -38,6 +46,8 @@ local requestedGlobalReset = false -- API EXPOSED -- WRITE ONLY
 local delayRequestedGlobalReset = false
 local requestedPickupResets = {} -- API EXPOSED -- WRITE ONLY
 
+local newFloor = false
+
 ---------------------------------------------AUXILIARY---------------------------------------------
 
 local poofPositions = {}
@@ -46,22 +56,64 @@ local wipedOptionGroups = {}
 local roomPedestals = {}
 local blindPedestals = {} -- API EXPOSED -- READ ONLY
 local shopItems = {} -- API EXPOSED -- READ ONLY
-local newCollectibles = {[visible] = {}, [blind] = {}} -- API EXPOSED -- READ ONLY
+
+local SlotData = {} -- Not the Actual Definition, defined here so that CopyRunData can work
+local EIDCraneItemData = {}
+-- Behaves exactly like EID.CraneItemType from External Item Description, the SlotData[Crane].ItemData variable will be based around this value,
+-- however it will diverge from it when Data is supposed to be deleted as that can cause unintended behavior, despite being a necessary step in properly obtaining ItemData
+local newLevelStage = LevelStage.STAGE_NULL
+local newLevelStageType = StageType.STAGETYPE_ORIGINAL
+
+local defaultRunData = {
+    CraneItemData = {},
+    EIDCraneItemData = {},
+    NewFloor = false,
+    NewLevelStage = LevelStage.STAGE_NULL,
+    NewLevelStageType = StageType.STAGETYPE_ORIGINAL
+}
+
+ReactionAPI.RunData = DeepCopy(defaultRunData)
+-- This is a Global Variable whose only purpose is to pass some local variables to the Save Function.
+
+function ReactionAPI.CopyRunData()
+    ReactionAPI.RunData.CraneItemData = DeepCopy(SlotData[Crane].ItemData)
+    ReactionAPI.RunData.EIDCraneItemData = DeepCopy(EIDCraneItemData)
+    ReactionAPI.RunData.NewFloor = newFloor
+    ReactionAPI.RunData.NewLevelStage = newLevelStage
+    ReactionAPI.RunData.NewLevelStageType = newLevelStageType
+end
+-- This function is only called when exiting the game and RunData needs to be saved.
+-- Though it may be Global in scope it doesn't matter, as it is called just before saving
+-- and this data is only read on Run Startup (which reloads the Save File) before reading the data.
 
 -----------------------------------------------MAIN------------------------------------------------
 
 local collectiblesInRoom = {} -- API EXPOSED -- READ ONLY
+local newCollectibles = {[visible] = {}, [blind] = {}} -- API EXPOSED -- READ ONLY
 
-local cQualityStatus = { -- API EXPOSED --READ ONLY
-    [visible] = {[newPickupsOnly] = 0x00, [everyPickup] = 0x00},
-    [blind] = {[newPickupsOnly] = 0x00, [everyPickup] = 0x00},
-    [absolute] = {[newPickupsOnly] = 0x00, [everyPickup] = 0x00}
+local cQualityStatus = { -- API EXPOSED -- READ ONLY
+    [visible] = {[filterNEW] = 0x00, [filterALL] = 0x00},
+    [blind] = {[filterNEW] = 0x00, [filterALL] = 0x00},
+    [absolute] = {[filterNEW] = 0x00, [filterALL] = 0x00}
 }
 
 local cBestQuality = { -- API EXPOSED -- READ ONLY
     [visible] = ReactionAPI.QualityStatus.NO_ITEMS,
     [blind] = ReactionAPI.QualityStatus.NO_ITEMS,
     [absolute] = ReactionAPI.QualityStatus.NO_ITEMS
+}
+
+--[[local]] SlotData = {
+    [ReactionAPI.SlotType.CRANE_GAME] = {
+        QualityStatus = { -- API EXPOSED -- READ ONLY
+            [filterNEW] = 0x00,
+            [filterALL] = 0x00
+        },
+        BestQuality = ReactionAPI.QualityStatus.NO_ITEMS, -- API EXPOSED -- READ ONLY
+        ItemData = {}, -- API EXPOSED -- READ ONLY
+        InRoom = {}, -- API EXPOSED -- READ ONLY
+        New = {} -- API EXPOSED -- READ ONLY
+    }
 }
 
 -------------------------------------------CUSTOM RULES--------------------------------------------
@@ -116,7 +168,16 @@ function ReactionAPI.GetCollectibleQualityStatus(IsBlind, NewOnly)
 end
 
 function ReactionAPI.GetCollectibleData()
-    return collectiblesInRoom, newCollectibles, blindPedestals, shopItems
+    local CollectibleData = {
+        InRoom = collectiblesInRoom,
+        New = newCollectibles,
+        Blind = blindPedestals,
+        Shop = shopItems,
+        Pedestals = roomPedestals,
+        QualityStatus = cQualityStatus,
+        BestQuality = cBestQuality
+    }
+    return CollectibleData
 end
 
 function ReactionAPI.CheckForCollectiblePresence(PresencePartition, IsBlind, CheckNewOnly, AllPresent)
@@ -153,6 +214,47 @@ function ReactionAPI.CheckForCollectibleAbsence(AbsencePartition, IsBlind, Check
     else
         return cQualityStatus[IsBlind][CheckNewOnly] & AbsencePartition ~= AbsencePartition
     end
+end
+
+function ReactionAPI.GetSlotBestQuality(SlotType)
+    if SlotType > ReactionAPI.SlotType.ALL or SlotType < 1 then
+        log.error("Invalid SlotType", "GetSlotBestQuality")
+        return nil
+    end
+    if SlotType == ReactionAPI.SlotType.ALL then
+        log.error("SlotType cannot be set to ALL", "GetSlotBestQuality")
+        return nil
+    end
+
+    return SlotData[SlotType].BestQuality
+end
+
+function ReactionAPI.GetSlotQualityStatus(SlotType, Filter)
+    if SlotType > ReactionAPI.SlotType.ALL or SlotType < 1 then
+        log.error("Invalid SlotType", "GetSlotQualityStatus")
+        return nil
+    end
+    if SlotType == ReactionAPI.SlotType.ALL then
+        log.error("SlotType cannot be set to ALL", "GetSlotQualityStatus")
+        return nil
+    end
+
+    if Filter then
+        return SlotData[SlotType].QualityStatus[Filter]
+    end
+    return SlotData[SlotType].QualityStatus
+end
+
+function ReactionAPI.GetSlotData(SlotType)
+    if SlotType > ReactionAPI.SlotType.ALL or SlotType < 1 then
+        log.error("Invalid SlotType", "GetSlotData")
+        return nil
+    end
+
+    if SlotType < ReactionAPI.SlotType.ALL then
+        return SlotData[SlotType]
+    end
+    return SlotData
 end
 
 function ReactionAPI.AddBlindCondition(Function, Global)
@@ -217,6 +319,14 @@ function ReactionAPI.ShouldIsBlindPedestalBeOptimized(Answer, TicketID)
         shouldIsBlindPedestalNotOptimize_Tickets[TicketID] = true
         Isaac.DebugString("[ShouldIsBlindPedestalBeOptimized] Ticket: " .. TicketID .. " Added")
     end
+end
+
+function ReactionAPI.GetBlindData()
+    local BlindData = {
+        IsGloballyBlind = globallyBlind,
+        IsCurseOfBlind = curseOfBlind,
+    }
+    return BlindData
 end
 
 function ReactionAPI.RequestReset(Global, EntityIDs)
@@ -457,42 +567,93 @@ local function SetCollectibleData(EntityPickup)
     end
 end
 
+local function SetCraneData() --OnPostUpdate()
+    for _, crane in ipairs(Isaac.FindByType(6, 16, -1, true, false)) do
+        if crane:GetSprite():IsPlaying("Broken") then
+            SlotData[Crane].InRoom[crane.Index] = nil
+        else
+            if SlotData[Crane].InRoom[crane.Index] == nil then
+                SlotData[Crane].New[crane.Index] = true
+            end
+            SlotData[Crane].InRoom[crane.Index] = crane
+        end
+        if EIDCraneItemData[tostring(crane.InitSeed)] then
+            if crane:GetSprite():IsPlaying("Prize") then
+                EIDCraneItemData[tostring(crane.InitSeed)] = nil
+            elseif EIDCraneItemData[crane.InitSeed.."Drop"..crane.DropSeed] == nil then
+                EIDCraneItemData[crane.InitSeed.."Drop"..crane.DropSeed] = EIDCraneItemData[tostring(crane.InitSeed)]
+                -- Pair the Crane Game's new drop seed with the latest collectible ID it's gotten
+                -- (fixes Glowing Hour Glass rewinds)
+            end
+        end
+        SlotData[Crane].ItemData[crane.InitSeed.."Drop"..crane.DropSeed] = EIDCraneItemData[crane.InitSeed.."Drop"..crane.DropSeed] or SlotData[Crane].ItemData[crane.InitSeed.."Drop"..crane.DropSeed]
+        SlotData[Crane].ItemData[crane.InitSeed] = EIDCraneItemData[crane.InitSeed.."Drop"..crane.DropSeed] or EIDCraneItemData[tostring(crane.InitSeed)] or SlotData[Crane].ItemData[crane.InitSeed.."Drop"..crane.DropSeed] or SlotData[Crane].ItemData[crane.InitSeed]
+    end
+end
+
 local function SetCollectibleQualityStatus(CollectibleID, IsBlind, IsNew) --SetQualityStatus()
-    ItemQuality = ReactionAPI.CollectibleData[CollectibleID] or ReactionAPI.QualityStatus.GLITCHED
-    if ItemQuality > ReactionAPI.QualityStatus.NO_ITEMS then
-        cQualityStatus[IsBlind][IsNew] = cQualityStatus[IsBlind][IsNew] | 1 << (ItemQuality + 1)
+    local itemQuality = ReactionAPI.CollectibleData[CollectibleID] or ReactionAPI.QualityStatus.GLITCHED
+    if itemQuality > ReactionAPI.QualityStatus.NO_ITEMS then
+        cQualityStatus[IsBlind][IsNew] = cQualityStatus[IsBlind][IsNew] | 1 << (itemQuality + 1)
+    end
+end
+
+local function SetCraneQualityStatus(CraneEntity, IsNew) -- SetQualityStatus()
+    local collectibleID = SlotData[Crane].ItemData[CraneEntity.InitSeed]
+    if collectibleID then
+        local itemQuality = ReactionAPI.CollectibleData[collectibleID] or ReactionAPI.QualityStatus.GLITCHED
+        if itemQuality > ReactionAPI.QualityStatus.NO_ITEMS then
+            SlotData[Crane].QualityStatus[IsNew] = SlotData[Crane].QualityStatus[IsNew] | 1 << (itemQuality + 1)
+        end
     end
 end
 
 local function SetQualityStatus() --OnPostUpdate()
+    -- COLLECTIBLES --
+
     cQualityStatus = {
-        [visible] = {[newPickupsOnly] = 0x00, [everyPickup] = 0x00},
-        [blind] = {[newPickupsOnly] = 0x00, [everyPickup] = 0x00},
-        [absolute] = {[newPickupsOnly] = 0x00, [everyPickup] = 0x00}
+        [visible] = {[filterNEW] = 0x00, [filterALL] = 0x00},
+        [blind] = {[filterNEW] = 0x00, [filterALL] = 0x00},
+        [absolute] = {[filterNEW] = 0x00, [filterALL] = 0x00}
     }
     for pickupID, _ in pairs(collectiblesInRoom) do
         local isBlind = blindPedestals[pickupID] ~= nil
         for collectibleID, _ in pairs(collectiblesInRoom[pickupID]) do
-            SetCollectibleQualityStatus(collectibleID, isBlind, everyPickup)
+            SetCollectibleQualityStatus(collectibleID, isBlind, filterALL)
         end
     end
     for collectibleID, _ in pairs(newCollectibles[visible]) do
-        SetCollectibleQualityStatus(collectibleID, visible, newPickupsOnly)
+        SetCollectibleQualityStatus(collectibleID, visible, filterNEW)
     end
     for collectibleID, _ in pairs(newCollectibles[blind]) do
-        SetCollectibleQualityStatus(collectibleID, blind, newPickupsOnly)
+        SetCollectibleQualityStatus(collectibleID, blind, filterNEW)
+    end
+
+    -- CRANES --
+
+    SlotData[Crane].QualityStatus = {
+        [filterNEW] = 0x00,
+        [filterALL] = 0x00
+    }
+    for _, craneEntity in pairs(SlotData[Crane].InRoom) do
+        SetCraneQualityStatus(craneEntity, filterALL)
+        if SlotData[Crane].New[craneEntity.Index] then
+            SetCraneQualityStatus(craneEntity, filterNEW)
+        end
     end
 end
 
 local function SetAbsoluteQualityStatus() --OnPostUpdate()
-    cQualityStatus[absolute][newPickupsOnly] = cQualityStatus[visible][newPickupsOnly] | cQualityStatus[blind][newPickupsOnly]
-    cQualityStatus[absolute][everyPickup] = cQualityStatus[visible][everyPickup] | cQualityStatus[blind][everyPickup]
+    cQualityStatus[absolute][filterNEW] = cQualityStatus[visible][filterNEW] | cQualityStatus[blind][filterNEW]
+    cQualityStatus[absolute][filterALL] = cQualityStatus[visible][filterALL] | cQualityStatus[blind][filterALL]
 end
 
-local function SetBestCollectibleQuality() --OnPostUpdate()
-    cBestQuality[visible] = cQualityStatus[visible][everyPickup] == 0x00 and ReactionAPI.QualityStatus.NO_ITEMS or math.floor(math.log(cQualityStatus[visible][everyPickup], 2)) - 1
-    cBestQuality[blind] = cQualityStatus[blind][everyPickup] == 0x00 and ReactionAPI.QualityStatus.NO_ITEMS or math.floor(math.log(cQualityStatus[blind][everyPickup], 2)) - 1
+local function SetBestQuality() --OnPostUpdate()
+    cBestQuality[visible] = cQualityStatus[visible][filterALL] == 0x00 and ReactionAPI.QualityStatus.NO_ITEMS or math.floor(math.log(cQualityStatus[visible][filterALL], 2)) - 1
+    cBestQuality[blind] = cQualityStatus[blind][filterALL] == 0x00 and ReactionAPI.QualityStatus.NO_ITEMS or math.floor(math.log(cQualityStatus[blind][filterALL], 2)) - 1
     cBestQuality[absolute] = math.max(cBestQuality[visible], cBestQuality[blind])
+
+    SlotData[Crane].BestQuality = SlotData[Crane].QualityStatus[filterALL] == 0x00 and ReactionAPI.QualityStatus.NO_ITEMS or math.floor(math.log(SlotData[Crane].QualityStatus[filterALL], 2)) - 1
 end
 
 local function SetGloballyBlindTickets() --OnPostUpdate()
@@ -505,6 +666,7 @@ local function ResetUpdateLocalVariables() --OnLatePostUpdate() --FullReset()
     onCollectibleUpdate_FirstExecution = true
     poofPositions = {}
     newCollectibles = {[visible] = {}, [blind] = {}}
+    SlotData[Crane].New = {}
 end --Reset Variables that get reset at the end of every Update cycle
 
 local function ResetUpdatePersistentVariables() --FullReset()
@@ -514,12 +676,26 @@ local function ResetUpdatePersistentVariables() --FullReset()
     blindPedestals = {}
     shopItems = {}
     collectiblesInRoom = {}
+    SlotData[Crane].InRoom = {}
 end --Reset Variables that persist at the end of an Update cycle
 
 local function PostCompletedReset() --FullReset()
     requestedGlobalReset = false
     delayRequestedGlobalReset = false
     requestedPickupResets = {}
+end
+
+local function ResetFloorTrackers()
+--    SlotData[Crane].ItemData = {}
+    EIDCraneItemData = {}
+end
+
+local function ResetCraneDataOnPermanentNewLevel()
+    local level = Game():GetLevel()
+    if newFloor and level:GetStage() == newLevelStage and level:GetStageType() == newLevelStageType then
+        SlotData[Crane].ItemData = ReactionAPI.Utilities.DeepCopy(EIDCraneItemData)
+    end
+    newFloor = false
 end
 
 local function FullReset()  --OnLatePostUpdate() --ResetOnNewRoom() --HandleRequestedGlobalResets()
@@ -539,13 +715,18 @@ local function HandleRequestedGlobalResets() --OnCollectibleUpdate()
     end
 end
 
-local function HandleNonExistentPedestals() --OnPostUpdate()
+local function HandleNonExistentEntities() --OnPostUpdate()
     for pickupID, entity in pairs(roomPedestals) do
         if not entity:Exists() or IsTouchedCollectible(entity) then
             roomPedestals[pickupID] = nil
             shopItems[pickupID] = nil
             collectiblesInRoom[pickupID] = nil
             blindPedestals[pickupID] = nil
+        end
+    end
+    for slotID, entity in pairs(SlotData[Crane].InRoom) do
+        if not entity:Exists() then
+            SlotData[Crane].InRoom[slotID] = nil
         end
     end
 end
@@ -582,11 +763,11 @@ if PROFILE then
     end
 end
 
-local function PrintCollectibleUpdateProfile()
+local function Print_onCollectibleUpdate_Profile()
 end
 
 if PROFILE then
-    PrintCollectibleUpdateProfile = function()
+    Print_onCollectibleUpdate_Profile = function()
         Isaac.DebugString("Completed ReactionAPI Update Cycle in : " .. Isaac.GetTime() - updateCycle_ProfileTimeStart .. " ms with " .. numCollectibleUpdates .. " Executions")
         updateCycle_ProfileTimeStart = Isaac.GetTime()
         numCollectibleUpdates = 0
@@ -654,13 +835,29 @@ local function OnCollectibleUpdate(_, EntityPickup)
 
 end
 
+local function RecordUnobtainableData(_, collectibleId, itemPool)
+    if itemPool == ItemPoolType.POOL_CRANE_GAME then
+        for _, crane in ipairs(Isaac.FindByType(6, 16, -1, true, false)) do
+            if not crane:GetSprite():IsPlaying("Broken") then
+                if not EIDCraneItemData[tostring(crane.InitSeed)] then
+                    SlotData[Crane].InRoom[crane.Index] = nil
+                    -- Reset Crane so that it is detected as New
+                    EIDCraneItemData[tostring(crane.InitSeed)] = collectibleId
+                    break
+                end
+            end
+        end
+    end
+end
+
 local function OnPostUpdate()
-    HandleNonExistentPedestals()
+    HandleNonExistentEntities()
+    SetCraneData()
     SetQualityStatus()
     HandleOverwriteFunctions()
     SetAbsoluteQualityStatus()
-    SetBestCollectibleQuality()
-    PrintCollectibleUpdateProfile()
+    SetBestQuality()
+    Print_onCollectibleUpdate_Profile()
 end
 
 local function OnLatePostUpdate()
@@ -677,15 +874,39 @@ end
 
 local function ResetOnNewRoom()
     FullReset()
+    ResetCraneDataOnPermanentNewLevel()
 end
 
 local function ResetOnExit()
     FullReset()
 end
 
+local function ResetOnNewFloor()
+    ResetFloorTrackers()
+    newFloor = true
+    newLevelStage = Game():GetLevel():GetStage()
+    newLevelStageType = Game():GetLevel():GetStageType()
+end
+
+local function LoadRunData(_, IsContinued)
+    if IsContinued and ReactionAPI:HasData() then
+        local loadedData = json.decode(ReactionAPI:LoadData())
+        ReactionAPI.RunData = loadedData["RunData"] or DeepCopy(defaultRunData)
+    else
+        ReactionAPI.RunData = DeepCopy(defaultRunData)
+    end
+    SlotData[Crane].ItemData = DeepCopy(ReactionAPI.RunData.CraneItemData)
+    EIDCraneItemData = DeepCopy(ReactionAPI.RunData.EIDCraneItemData)
+    newFloor = ReactionAPI.RunData.NewFloor
+    newLevelStage = ReactionAPI.RunData.NewLevelStage
+    newLevelStageType = ReactionAPI.RunData.NewLevelStageType
+end
+
 ReactionAPI:AddCallback(ModCallbacks.MC_POST_EFFECT_INIT, RecordPoofPosition, EffectVariant.POOF01)
 
 ReactionAPI:AddCallback(ModCallbacks.MC_POST_PICKUP_UPDATE, OnCollectibleUpdate, PickupVariant.PICKUP_COLLECTIBLE)
+
+ReactionAPI:AddCallback(ModCallbacks.MC_POST_GET_COLLECTIBLE, RecordUnobtainableData)
 
 ReactionAPI:AddPriorityCallback(ModCallbacks.MC_POST_UPDATE, CallbackPriority.IMPORTANT, OnPostUpdate)
 
@@ -695,12 +916,17 @@ ReactionAPI:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, ResetOnNewRoom)
 
 ReactionAPI:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT, ResetOnExit)
 
+ReactionAPI:AddCallback(ModCallbacks.MC_POST_NEW_LEVEL, ResetOnNewFloor)
+
+ReactionAPI:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, LoadRunData)
+
 ---------------------------------------------------------------------------------------------------
 ----------------------------------------OVERWRITE FUNCTIONS----------------------------------------
 ---------------------------------------------------------------------------------------------------
 
 ------------------------------------------COMPATIBILITY--------------------------------------------
 
+local removedApplyOverwrite = false
 local eternalCandleID
 
 local function TaintedTreasureCompatibility()
@@ -725,11 +951,16 @@ local function TaintedTreasureCompatibility()
     end
     return {}
 end
+
 local function ApplyOverwrite()
+    if removedApplyOverwrite then
+        return
+    end
     if TaintedTreasure then
         table.insert(overwriteFunctions, 1, TaintedTreasureCompatibility)
     end
-    ReactionAPI:RemoveCallback(ModCallbacks.MC_POST_NEW_ROOM, ApplyOverwrite)
+    removedApplyOverwrite = true
+--    ReactionAPI:RemoveCallback(ModCallbacks.MC_POST_NEW_ROOM, ApplyOverwrite)
 end
 
 ReactionAPI:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, ApplyOverwrite)
@@ -738,37 +969,79 @@ ReactionAPI:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, ApplyOverwrite)
 -----------------------------------------------DEBUG-----------------------------------------------
 ---------------------------------------------------------------------------------------------------
 
-----------------------------------------------TICKETS----------------------------------------------
+if DEBUG then
 
-local function DebugPrintGlobalBlindTickets()
-    Isaac.DebugString("GlobalBlind Tickets:")
-    for ID, _ in pairs(isCurseOfBlindNotGlobal_Tickets) do
-        Isaac.DebugString("Id: " .. ID)
+    ------------------------------------------TICKETS----------------------------------------------
+
+    local function DebugPrintGlobalBlindTickets()
+        log.print("GlobalBlind Tickets:")
+        for ID, _ in pairs(isCurseOfBlindNotGlobal_Tickets) do
+            log.print("Id: " .. ID)
+        end
     end
-end
 
-local function DebugPrintBlindOptimizeTickets()
-    Isaac.DebugString("BlindOptimize Tickets:")
-    for ID, _ in pairs(isCurseOfBlindNotGlobal_Tickets) do
-        Isaac.DebugString("Id: " .. ID)
+    local function DebugPrintBlindOptimizeTickets()
+        log.print("BlindOptimize Tickets:")
+        for ID, _ in pairs(isCurseOfBlindNotGlobal_Tickets) do
+            log.print("Id: " .. ID)
+        end
     end
+
+    local function DebugPrintTickets()
+        DebugPrintGlobalBlindTickets()
+        DebugPrintBlindOptimizeTickets()
+    end
+
+    local function DebugPrintTicketResults()
+        log.print("IsCurseOfBlind: " .. tostring(IsCurseOfBlind()))
+        log.print("IsBlindPedestalOptimized: " .. tostring(ReactionAPI.UserSettings.cOptimizeIsBlindPedestal and ShouldIsBlindPedestalBeOptimized()))
+    end
+
+    -------------------------------------------CRANE-----------------------------------------------
+
+    local function DebugPrintCraneData()
+        log.print("Printing Current Cranes Data:")
+        for _, craneEntity in pairs(SlotData[Crane].InRoom) do
+            local collectibleID = SlotData[Crane].ItemData[craneEntity.InitSeed.."Drop"..craneEntity.DropSeed] or SlotData[Crane].ItemData[craneEntity.InitSeed]
+            log.print("CraneSeed: " .. tostring(craneEntity.InitSeed) .. " CollectibleID: " .. tostring(collectibleID))
+            collectibleID = EIDCraneItemData[craneEntity.InitSeed.."Drop"..craneEntity.DropSeed] or EIDCraneItemData[tostring(craneEntity.InitSeed)]
+            log.print("EID CraneSeed: " .. tostring(craneEntity.InitSeed) .. " EID CollectibleID: " .. tostring(collectibleID))
+        end
+        log.print("Printing Full Crane Data:")
+        for craneSeed, collectibleId in pairs(SlotData[Crane].ItemData) do
+            log.print("CraneSeed: " .. craneSeed .. " CollectibleID: " .. collectibleId)
+        end
+        for craneSeed, collectibleId in pairs(EIDCraneItemData) do
+            log.print("EID CraneSeed: " .. craneSeed .. " EID CollectibleID: " .. collectibleId)
+        end
+    end
+
+    ------------------------------------KEYBIND FUNCTIONS------------------------------------------
+
+    local function PrintTicketDebug()
+        DebugPrintTickets()
+        DebugPrintTicketResults()
+    end
+
+    local function PrintCraneDebug()
+        DebugPrintCraneData()
+    end
+
+    ----------------------------------------KEYBINDS-----------------------------------------------
+
+    local Keybinds = {
+        [Keyboard.KEY_1] = PrintTicketDebug,
+        [Keyboard.KEY_2] = PrintCraneDebug
+    }
+
+    local function KeybindManager()
+        for key, command in pairs(Keybinds) do
+            if Input.IsButtonTriggered(key, 0) then
+                command()
+            end
+        end
+    end
+
+    ReactionAPI:AddCallback(ModCallbacks.MC_POST_RENDER, KeybindManager)
 end
 
-local function DebugPrintTickets()
-    DebugPrintGlobalBlindTickets()
-    DebugPrintBlindOptimizeTickets()
-end
-
--- CHECKS
-
-local function DebugPrintChecks()
-    Isaac.DebugString("IsCurseOfBlind: " .. tostring(IsCurseOfBlind()))
-    Isaac.DebugString("IsBlindPedestalOptimized: " .. tostring(ReactionAPI.UserSettings.cOptimizeIsBlindPedestal and ShouldIsBlindPedestalBeOptimized()))
-end
-
-local function PrintDebug()
-    DebugPrintTickets()
-    DebugPrintChecks()
-end
-
--- ReactionAPI:AddCallback(ModCallbacks.MC_POST_UPDATE, PrintDebug)
