@@ -1,3 +1,5 @@
+local log = require("reactionAPI_scripts.tools.log")
+
 ReactionAPI.Utilities = {}
 
 local function DeepCopy(Table)
@@ -68,4 +70,38 @@ end
 
 ReactionAPI.Utilities.CanBlindCollectiblesSpawnInTreasureRoom = function()
     return Game():GetLevel():GetStageType() >= StageType.STAGETYPE_REPENTANCE or ReactionAPI.Utilities.AnyPlayerHasTrinket(TrinketType.TRINKET_BROKEN_GLASSES, false)
+end
+
+ReactionAPI.Utilities.CheckForPresence = function(PresencePartition, TargetPartition, AllPresent)
+    if PresencePartition < 0x00 then
+        log.error("An invalid PresencePartition was passed", "CheckForPresence")
+        return
+    end
+    if TargetPartition < 0x00 then
+        log.error("An invalid TargetPartition was passed", "CheckForPresence")
+        return
+    end
+
+    if AllPresent then
+        return TargetPartition & PresencePartition == PresencePartition
+    else
+        return TargetPartition & PresencePartition ~= 0
+    end
+end
+
+ReactionAPI.Utilities.CheckForAbsence = function(AbsencePartition, TargetPartition, AllAbsent)
+    if AbsencePartition < 0x00 then
+        log.error("An invalid AbsencePartition was passed", "CheckForAbsence")
+        return
+    end
+    if TargetPartition < 0x00 then
+        log.error("An invalid AbsencePartition was passed", "CheckForAbsence")
+        return
+    end
+
+    if AllAbsent then
+        return TargetPartition & AbsencePartition == 0
+    else
+        return TargetPartition & AbsencePartition ~= AbsencePartition
+    end
 end
