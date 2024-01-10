@@ -12,13 +12,13 @@ include("reactionAPI_scripts.functions.utilities")
 
 include("reactionAPI_scripts.tables.user_data")
 
--- include("reactionAPI_scripts.implementation")
+include("reactionAPI_scripts.implementation")
 
 include("reactionAPI_scripts.functions.api")
 
 include("reactionAPI_scripts.compatibility.cursed_collection")
 
-include("reactionAPI_scripts.tools.debug")
+-- include("reactionAPI_scripts.tools.debug")
 
 local LoadedMessage = "ReactionAPI " .. ReactionAPI.ModVersion .. " - Loaded"
 
