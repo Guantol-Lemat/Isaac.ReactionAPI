@@ -533,8 +533,11 @@ if REPENTOGON then
                 blindPedestals[EntityPickup.Index] = EntityPickup
             end
 
-            collectiblesInRoom[EntityPickup.Index] = GetFullCycleData(EntityPickup)
-
+            local cycleData = GetFullCycleData(EntityPickup)
+            collectiblesInRoom[EntityPickup.Index] = cycleData
+            for _, collectibleId in ipairs(cycleData) do
+                newCollectibles[isBlind][collectibleId] = true
+            end
             return
         end
 
@@ -812,7 +815,9 @@ end
 ---------------------------------------------CALLBACK----------------------------------------------
 
 local function RequestResetOnMorph(_, EntityPickup) -- REPENTOGON Only
-    ReactionAPI.RequestReset(resetLOCAL, {EntityPickup.Index})
+    if EntityPickup.Variant == PickupVariant.PICKUP_COLLECTIBLE then
+        ReactionAPI.RequestReset(resetLOCAL, {EntityPickup.Index})
+    end
 end
 
 local function RecordPoofPosition(_, EntityEffect)
