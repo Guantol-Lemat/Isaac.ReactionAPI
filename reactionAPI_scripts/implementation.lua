@@ -23,7 +23,8 @@ local blind = ReactionAPI.Context.Visibility.BLIND
 local absolute = ReactionAPI.Context.Visibility.ABSOLUTE
 local filterNEW = ReactionAPI.Context.Filter.NEW
 local filterALL = ReactionAPI.Context.Filter.ALL
-local global = true
+local resetGLOBAL = ReactionAPI.Context.Reset.GLOBAL
+local resetLOCAL = ReactionAPI.Context.Reset.LOCAL
 
 local Crane = ReactionAPI.SlotType.CRANE_GAME
 
@@ -141,6 +142,12 @@ local opCodes = {
     [ReactionAPI.OpCodes.SET] = OpCodeSET,
     [ReactionAPI.OpCodes.CLEAR] = OpCodeCLEAR
 }
+
+local function ShiftCycleData(CycleData)
+    table.insert(CycleData, #CycleData + 1,CycleData[1])
+    table.remove(CycleData, 1)
+    return CycleData
+end
 
 ------------------------------------------------API------------------------------------------------
 
@@ -416,36 +423,22 @@ local function IsTouchedCollectible(EntityPickup) --OnCollectibleUpdate() --Hand
     return EntityPickup.Touched or EntityPickup.SubType == 0
 end
 
-local function CompareCycleData(EntityPickup, CycleNumber) --REPENTOGON Only
-    if CycleNumber == 1 then
-        return collectiblesInRoom[EntityPickup.Index][1] == EntityPickup.SubType
+local function CompareCycleData(TargetEntityIndex, CycleData) --REPENTOGON Only
+    if #collectiblesInRoom[TargetEntityIndex] ~= #CycleData then
+        return false
     end
-    for cycleOrder, collectibleID in ipairs(EntityPickup:GetCollectibleCycle()) do
-        if collectiblesInRoom[EntityPickup.Index][cycleOrder] ~= collectibleID then
+    for cycleOrder, collectibleID in ipairs(CycleData) do
+        if collectiblesInRoom[TargetEntityIndex][cycleOrder] ~= collectibleID then
+            if DEBUG then
+                log.print("Difference Found: " .. cycleOrder .. "." .. collectiblesInRoom[TargetEntityIndex][cycleOrder] .. "~=" .. collectibleID)
+            end
             return false
         end
     end
     return true
 end
 
-local function IsNewCollectible(EntityPickup) --OnCollectibleUpdate()
-end
-
-if REPENTOGON then
-    IsNewCollectible = function(EntityPickup)
-        if collectiblesInRoom[EntityPickup.Index] == nil then
-            return true
-        end
-        local CycleNumber = #EntityPickup:GetCollectibleCycle()
-        CycleNumber = CycleNumber == 0 and 1 or CycleNumber
-        if CycleNumber ~= #collectiblesInRoom[EntityPickup.Index] then
-            return true
-        end
-        return not CompareCycleData(EntityPickup, CycleNumber)
-    end
-end
-
-local function IsNewCollectible(EntityPickup) --OnCollectibleUpdate()
+local function IsNewCollectible(EntityPickup)
     if collectiblesInRoom[EntityPickup.Index] == nil then
         return true
     end
@@ -456,6 +449,7 @@ local function IsNewCollectible(EntityPickup) --OnCollectibleUpdate()
     end
     return false
 end
+
 
 local function HasResetBeenRequested(EntityPickup) --OnCollectibleUpdate()
     return requestedPickupResets[EntityPickup.Index] ~= nil
@@ -473,14 +467,14 @@ local function IsBlindCollectible(EntityPickup) --OnCollectibleUpdate()
     return false
 end
 
-local function EvaluateGloballyBlindConditions() --OnLatePostUpdate()
+local function EvaluateGloballyBlindConditions() --onLatePostUpdate()
     for _, condition in ipairs(isGloballyBlindConditions) do
         if condition() then
             if globallyBlind == true then
                 return
             else
                 globallyBlind = true
-                ReactionAPI.RequestReset(global)
+                ReactionAPI.RequestReset(resetGLOBAL)
                 return
             end
         end
@@ -489,7 +483,7 @@ local function EvaluateGloballyBlindConditions() --OnLatePostUpdate()
         return
     else
         globallyBlind = false
-        ReactionAPI.RequestReset(global)
+        ReactionAPI.RequestReset(resetGLOBAL)
     end
 end
 
@@ -506,6 +500,17 @@ else
     end
 end
 
+------------------------------------------------GET------------------------------------------------
+
+local function GetFullCycleData(EntityPickup) -- REPENTOGON only
+    local cycleData = {}
+    cycleData[1] = EntityPickup.SubType
+    for cycleOrder, collectibleId in ipairs(EntityPickup:GetCollectibleCycle()) do
+        cycleData[cycleOrder + 1] = collectibleId
+    end
+    return cycleData
+end
+
 ------------------------------------------------SET------------------------------------------------
 
 local function SetCollectibleData(EntityPickup)
@@ -519,55 +524,78 @@ if REPENTOGON then
             shopItems[EntityPickup.Index] = EntityPickup
         end
 
-        if IsNewCollectible(EntityPickup) or HasResetBeenRequested(EntityPickup) then
+        if collectiblesInRoom[EntityPickup.Index] == nil then
+            collectiblesInRoom[EntityPickup.Index] = {}
+            blindPedestals[EntityPickup.Index] = nil
+
+            local isBlind = IsBlindCollectible(EntityPickup)
+            if isBlind then
+                blindPedestals[EntityPickup.Index] = EntityPickup
+            end
+
+            collectiblesInRoom[EntityPickup.Index] = GetFullCycleData(EntityPickup)
+
+            return
+        end
+
+        if HasResetBeenRequested(EntityPickup) then
+            requestedPickupResets[EntityPickup.Index] = nil
+            local previousIsBlind = blindPedestals[EntityPickup.Index] ~= nil
             blindPedestals[EntityPickup.Index] = nil
             local isBlind = IsBlindCollectible(EntityPickup)
             if isBlind then
                 blindPedestals[EntityPickup.Index] = EntityPickup
             end
 
-            if #EntityPickup:GetCollectibleCycle() == 0 then
-                collectiblesInRoom[EntityPickup.Index][1] = EntityPickup.SubType
-                newCollectibles[isBlind][EntityPickup.SubType] = true
-            else
-                for cycleOrder, collectibleID in ipairs(EntityPickup:GetCollectibleCycle()) do
-                    collectiblesInRoom[EntityPickup.Index][cycleOrder] = EntityPickup.SubType
-                    newCollectibles[isBlind][EntityPickup.SubType] = true
+            local cycleData = GetFullCycleData(EntityPickup)
+            collectiblesInRoom[EntityPickup.Index] = ShiftCycleData(collectiblesInRoom[EntityPickup.Index])
+            if CompareCycleData(EntityPickup.Index, cycleData) then
+                if previousIsBlind ~= isBlind then
+                    for _, collectibleId in ipairs(cycleData) do
+                        newCollectibles[isBlind][collectibleId] = true
+                    end
                 end
+                return
+            end
+
+            collectiblesInRoom[EntityPickup.Index] = cycleData
+            for _, collectibleId in ipairs(cycleData) do
+                newCollectibles[isBlind][collectibleId] = true
             end
         end
     end
-end
+else
+    SetCollectibleData = function(EntityPickup)
+        local isBlind = nil --NOT INITIALIZED YET
 
-local function SetCollectibleData(EntityPickup)
-    local isBlind = nil --NOT INITIALIZED YET
+        roomPedestals[EntityPickup.Index] = EntityPickup
 
-    roomPedestals[EntityPickup.Index] = EntityPickup
+        if EntityPickup:IsShopItem() then
+            shopItems[EntityPickup.Index] = EntityPickup
+        end
 
-    if EntityPickup:IsShopItem() then
-        shopItems[EntityPickup.Index] = EntityPickup
-    end
+        if IsNewCollectible(EntityPickup) or HasResetBeenRequested(EntityPickup) then
+            requestedPickupResets[EntityPickup.Index] = nil
+            collectiblesInRoom[EntityPickup.Index] = {}
+            blindPedestals[EntityPickup.Index] = nil
+        end
+        if blindPedestals[EntityPickup.Index] ~= nil then
+            isBlind = true
+        else
+            isBlind = IsBlindCollectible(EntityPickup)
+            if isBlind then
+                blindPedestals[EntityPickup.Index] = EntityPickup
+            end
+        end
 
-    if IsNewCollectible(EntityPickup) or HasResetBeenRequested(EntityPickup) then
-        collectiblesInRoom[EntityPickup.Index] = {}
-        blindPedestals[EntityPickup.Index] = nil
-    end
-    if blindPedestals[EntityPickup.Index] ~= nil then
-        isBlind = true
-    else
-        isBlind = IsBlindCollectible(EntityPickup)
-        if isBlind then
-            blindPedestals[EntityPickup.Index] = EntityPickup
+        if collectiblesInRoom[EntityPickup.Index][EntityPickup.SubType] == nil then
+            newCollectibles[isBlind][EntityPickup.SubType] = true
+            collectiblesInRoom[EntityPickup.Index][EntityPickup.SubType] = ReactionAPI.Utilities.GetTableLength(collectiblesInRoom[EntityPickup.Index]) + 1
         end
     end
-
-    if collectiblesInRoom[EntityPickup.Index][EntityPickup.SubType] == nil then
-        newCollectibles[isBlind][EntityPickup.SubType] = true
-        collectiblesInRoom[EntityPickup.Index][EntityPickup.SubType] = ReactionAPI.Utilities.GetTableLength(collectiblesInRoom[EntityPickup.Index]) + 1
-    end
 end
 
-local function SetCraneData() --OnPostUpdate()
+local function SetCraneData() --onPostUpdate()
     for _, crane in ipairs(Isaac.FindByType(6, 16, -1, true, false)) do
         if crane:GetSprite():IsPlaying("Broken") then
             SlotData[Crane].InRoom[crane.Index] = nil
@@ -608,7 +636,7 @@ local function SetCraneQualityStatus(CraneEntity, IsNew) -- SetQualityStatus()
     end
 end
 
-local function SetQualityStatus() --OnPostUpdate()
+local function SetQualityStatus() --onPostUpdate()
     -- COLLECTIBLES --
 
     cQualityStatus = {
@@ -618,8 +646,14 @@ local function SetQualityStatus() --OnPostUpdate()
     }
     for pickupID, _ in pairs(collectiblesInRoom) do
         local isBlind = blindPedestals[pickupID] ~= nil
-        for collectibleID, _ in pairs(collectiblesInRoom[pickupID]) do
-            SetCollectibleQualityStatus(collectibleID, isBlind, filterALL)
+        if REPENTOGON then
+            for _, collectibleID in pairs(collectiblesInRoom[pickupID]) do
+                SetCollectibleQualityStatus(collectibleID, isBlind, filterALL)
+            end
+        else
+            for collectibleID, _ in pairs(collectiblesInRoom[pickupID]) do
+                SetCollectibleQualityStatus(collectibleID, isBlind, filterALL)
+            end
         end
     end
     for collectibleID, _ in pairs(newCollectibles[visible]) do
@@ -643,12 +677,12 @@ local function SetQualityStatus() --OnPostUpdate()
     end
 end
 
-local function SetAbsoluteQualityStatus() --OnPostUpdate()
+local function SetAbsoluteQualityStatus() --onPostUpdate()
     cQualityStatus[absolute][filterNEW] = cQualityStatus[visible][filterNEW] | cQualityStatus[blind][filterNEW]
     cQualityStatus[absolute][filterALL] = cQualityStatus[visible][filterALL] | cQualityStatus[blind][filterALL]
 end
 
-local function SetBestQuality() --OnPostUpdate()
+local function SetBestQuality() --onPostUpdate()
     cBestQuality[visible] = cQualityStatus[visible][filterALL] == 0x00 and ReactionAPI.QualityStatus.NO_ITEMS or math.floor(math.log(cQualityStatus[visible][filterALL], 2)) - 1
     cBestQuality[blind] = cQualityStatus[blind][filterALL] == 0x00 and ReactionAPI.QualityStatus.NO_ITEMS or math.floor(math.log(cQualityStatus[blind][filterALL], 2)) - 1
     cBestQuality[absolute] = math.max(cBestQuality[visible], cBestQuality[blind])
@@ -656,13 +690,13 @@ local function SetBestQuality() --OnPostUpdate()
     SlotData[Crane].BestQuality = SlotData[Crane].QualityStatus[filterALL] == 0x00 and ReactionAPI.QualityStatus.NO_ITEMS or math.floor(math.log(SlotData[Crane].QualityStatus[filterALL], 2)) - 1
 end
 
-local function SetGloballyBlindTickets() --OnPostUpdate()
+local function SetGloballyBlindTickets() --onPostUpdate()
     ReactionAPI.SetIsCurseOfBlindGlobal(not IsDeathCertificateDimension(), "DeathCertificateDimension")
 end
 
 -----------------------------------------------RESET-----------------------------------------------
 
-local function ResetUpdateLocalVariables() --OnLatePostUpdate() --FullReset()
+local function ResetUpdateLocalVariables() --onLatePostUpdate() --FullReset()
     onCollectibleUpdate_FirstExecution = true
     poofPositions = {}
     newCollectibles = {[visible] = {}, [blind] = {}}
@@ -698,7 +732,7 @@ local function ResetCraneDataOnPermanentNewLevel()
     newFloor = false
 end
 
-local function FullReset()  --OnLatePostUpdate() --ResetOnNewRoom() --HandleRequestedGlobalResets()
+local function FullReset()  --onLatePostUpdate() --ResetOnNewRoom() --HandleRequestedGlobalResets()
     ResetUpdateLocalVariables()
     ResetUpdatePersistentVariables()
 
@@ -715,7 +749,7 @@ local function HandleRequestedGlobalResets() --OnCollectibleUpdate()
     end
 end
 
-local function HandleNonExistentEntities() --OnPostUpdate()
+local function HandleNonExistentEntities() --onPostUpdate()
     for pickupID, entity in pairs(roomPedestals) do
         if not entity:Exists() or IsTouchedCollectible(entity) then
             roomPedestals[pickupID] = nil
@@ -731,7 +765,7 @@ local function HandleNonExistentEntities() --OnPostUpdate()
     end
 end
 
-local function HandleOverwriteFunctions() --OnPostUpdate()
+local function HandleOverwriteFunctions() --onPostUpdate()
     for _, overwrite in pairs(overwriteFunctions) do
         local operations = overwrite()
         for _, operation in ipairs(operations) do
@@ -740,13 +774,14 @@ local function HandleOverwriteFunctions() --OnPostUpdate()
     end
 end
 
-local function HandleRequestedPickupResets() --OnLatePostUpdate()
+local function HandleRequestedPickupResets() --onLatePostUpdate()
     for _, pickupID in pairs(requestedPickupResets) do
         roomPedestals[pickupID] = nil
         collectiblesInRoom[pickupID] = nil
         blindPedestals[pickupID] = nil
         shopItems[pickupID] = nil
     end
+    requestedPickupResets = {}
 end
 
 ----------------------------------------------PROFILE----------------------------------------------
@@ -776,6 +811,10 @@ end
 
 ---------------------------------------------CALLBACK----------------------------------------------
 
+local function RequestResetOnMorph(_, EntityPickup) -- REPENTOGON Only
+    ReactionAPI.RequestReset(resetLOCAL, {EntityPickup.Index})
+end
+
 local function RecordPoofPosition(_, EntityEffect)
     table.insert(poofPositions, EntityEffect.Position)
 end
@@ -802,37 +841,36 @@ if REPENTOGON then
 
         SetCollectibleData(EntityPickup)
     end
-end
+else
+    onCollectibleUpdate = function(_, EntityPickup)
+        ProfileCollectibleUpdate()
 
-local function OnCollectibleUpdate(_, EntityPickup)
-    ProfileCollectibleUpdate()
-
-    if requestedGlobalReset then
-        HandleRequestedGlobalResets()
-    end
-    onCollectibleUpdate_FirstExecution = false
-
-    local cachedGroup = cachedOptionGroup[EntityPickup.Index]
-    local group = cachedGroup or EntityPickup.OptionsPickupIndex
-    local isGrouped = group > 0
-
-    if isGrouped and cachedGroup == nil then
-        cachedOptionGroup[EntityPickup.Index] = EntityPickup.OptionsPickupIndex
-    end
-
-    if IsTouchedCollectible(EntityPickup) or wipedOptionGroups[group] then
-        if isGrouped then
-            wipedOptionGroups[group] = true
+        if requestedGlobalReset then
+            HandleRequestedGlobalResets()
         end
-        roomPedestals[EntityPickup.Index] = nil
-        collectiblesInRoom[EntityPickup.Index] = nil
-        shopItems[EntityPickup.Index] = nil
-        blindPedestals[EntityPickup.Index] = nil
-        return
+        onCollectibleUpdate_FirstExecution = false
+
+        local cachedGroup = cachedOptionGroup[EntityPickup.Index]
+        local group = cachedGroup or EntityPickup.OptionsPickupIndex
+        local isGrouped = group > 0
+
+        if isGrouped and cachedGroup == nil then
+            cachedOptionGroup[EntityPickup.Index] = EntityPickup.OptionsPickupIndex
+        end
+
+        if IsTouchedCollectible(EntityPickup) or wipedOptionGroups[group] then
+            if isGrouped then
+                wipedOptionGroups[group] = true
+            end
+            roomPedestals[EntityPickup.Index] = nil
+            collectiblesInRoom[EntityPickup.Index] = nil
+            shopItems[EntityPickup.Index] = nil
+            blindPedestals[EntityPickup.Index] = nil
+            return
+        end
+
+        SetCollectibleData(EntityPickup)
     end
-
-    SetCollectibleData(EntityPickup)
-
 end
 
 local function RecordUnobtainableData(_, collectibleId, itemPool)
@@ -850,7 +888,7 @@ local function RecordUnobtainableData(_, collectibleId, itemPool)
     end
 end
 
-local function OnPostUpdate()
+local function onPostUpdate()
     HandleNonExistentEntities()
     SetCraneData()
     SetQualityStatus()
@@ -860,7 +898,7 @@ local function OnPostUpdate()
     Print_onCollectibleUpdate_Profile()
 end
 
-local function OnLatePostUpdate()
+local function onLatePostUpdate()
     SetGloballyBlindTickets()
     EvaluateGloballyBlindConditions()
     curseOfBlind = Game():GetLevel():GetCurses() & LevelCurse.CURSE_OF_BLIND ~= 0
@@ -902,15 +940,19 @@ local function LoadRunData(_, IsContinued)
     newLevelStageType = ReactionAPI.RunData.NewLevelStageType
 end
 
-ReactionAPI:AddCallback(ModCallbacks.MC_POST_EFFECT_INIT, RecordPoofPosition, EffectVariant.POOF01)
+if REPENTOGON then
+    ReactionAPI:AddCallback(ModCallbacks.MC_POST_PICKUP_MORPH, RequestResetOnMorph)
+else
+    ReactionAPI:AddCallback(ModCallbacks.MC_POST_EFFECT_INIT, RecordPoofPosition, EffectVariant.POOF01)
+end
 
-ReactionAPI:AddCallback(ModCallbacks.MC_POST_PICKUP_UPDATE, OnCollectibleUpdate, PickupVariant.PICKUP_COLLECTIBLE)
+ReactionAPI:AddCallback(ModCallbacks.MC_POST_PICKUP_UPDATE, onCollectibleUpdate, PickupVariant.PICKUP_COLLECTIBLE)
 
 ReactionAPI:AddCallback(ModCallbacks.MC_POST_GET_COLLECTIBLE, RecordUnobtainableData)
 
-ReactionAPI:AddPriorityCallback(ModCallbacks.MC_POST_UPDATE, CallbackPriority.IMPORTANT, OnPostUpdate)
+ReactionAPI:AddPriorityCallback(ModCallbacks.MC_POST_UPDATE, CallbackPriority.IMPORTANT, onPostUpdate)
 
-ReactionAPI:AddPriorityCallback(ModCallbacks.MC_POST_UPDATE, CallbackPriority.LATE, OnLatePostUpdate)
+ReactionAPI:AddPriorityCallback(ModCallbacks.MC_POST_UPDATE, CallbackPriority.LATE, onLatePostUpdate)
 
 ReactionAPI:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, ResetOnNewRoom)
 
