@@ -110,7 +110,7 @@ ReactionAPI.Interface.AddBlindCondition = ReactionAPI.AddBlindCondition
 ReactionAPI.Interface.SetIsCurseOfBlindGlobal = ReactionAPI.SetIsCurseOfBlindGlobal
 
 --- Allows to set whether or not the function that determines if a Collectible is Blind, should perform any type of optimization to avoid a significant slowdowns
---  Should be used only if the optimization interferes with your mod's behaviour
+--  Should be used only if the optimization interferes with your mod's behavior
 --  For reference the optimization prevents the main part of the function from being executed when the player is not in a Treasure room in an Alt Path Floor
 --  This function also uses a Tickets to determine how many mods are currently requesting that the function should not perform any kind of optimization
 --- @param Answer boolean @default true
@@ -122,10 +122,10 @@ ReactionAPI.Interface.SetIsCurseOfBlindGlobal = ReactionAPI.SetIsCurseOfBlindGlo
 --         end
 ReactionAPI.Interface.ShouldIsBlindPedestalBeOptimized = ReactionAPI.ShouldIsBlindPedestalBeOptimized
 
---- Blind Data is update every LATE MC_POST_UPDATE, this is means that by design the Data collected by reaction API is using the
+--- Blind Data is updated every LATE MC_POST_UPDATE, this is means that by design the Data collected by reaction API is using the
 --  evaluation from the previous update rather than the current one.
 --- @return table
-ReactionAPI.Interface.GetBlindData = ReactionAPI.GetBlindData()
+ReactionAPI.Interface.GetBlindData = ReactionAPI.GetBlindData
 
 --- Should be used if your mod is initializing new collectibles or rerolling already existing ones and the implemented detection systems Fails to either delete or reset them in the collectiblesInRoom table
 --  If you are morphing an item in order to try and create a "Cycling" Item effect (Like Glitched Crow or Tainted Isaac) then you should not Request a Reset

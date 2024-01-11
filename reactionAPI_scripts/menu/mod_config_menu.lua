@@ -42,8 +42,6 @@ function MCM:InitModConfigMenu()
     ModConfigMenu.AddText(CategoryName, "Info", function() return "Version " .. ReactionAPI.ModVersion end)
     ModConfigMenu.AddSpace(CategoryName, "Info")
     ModConfigMenu.AddText(CategoryName, "Info", function() return "by Guantol" end)
-    ModConfigMenu.AddText(CategoryName, "Info", function() return "Visit the Documentation Page" end)
-    ModConfigMenu.AddText(CategoryName, "Info", function() return "for more info on each Implementation" end)
 
     --General
 
