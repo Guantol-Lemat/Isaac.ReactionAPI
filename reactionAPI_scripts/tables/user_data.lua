@@ -19,7 +19,7 @@ ReactionAPI.DefaultUserSettings = {
 
 ReactionAPI.UserSettings = DeepCopy(ReactionAPI.DefaultUserSettings)
 
-ReactionAPI.CollectibleData = {}
+ReactionAPI.CollectibleQuality = {}
 
 --[[
 
@@ -93,11 +93,11 @@ local function InitItemDataMCM()
         local collectible = Isaac.GetItemConfig():GetCollectible(collectibleID)
         if collectible then
             if ReactionAPI.UserSettings["cVanilla"][collectibleID] == ReactionAPI.Setting.DEFAULT then
-                ReactionAPI.CollectibleData[collectibleID] = collectible.Quality
+                ReactionAPI.CollectibleQuality[collectibleID] = collectible.Quality
             elseif ReactionAPI.UserSettings["cVanilla"][collectibleID] == ReactionAPI.Setting.IGNORE then
-                ReactionAPI.CollectibleData[collectibleID] = ReactionAPI.QualityStatus.NO_ITEMS
+                ReactionAPI.CollectibleQuality[collectibleID] = ReactionAPI.QualityStatus.NO_ITEMS
             else
-                ReactionAPI.CollectibleData[collectibleID] = ReactionAPI.UserSettings["cVanilla"][collectibleID]
+                ReactionAPI.CollectibleQuality[collectibleID] = ReactionAPI.UserSettings["cVanilla"][collectibleID]
             end
         end
     end
@@ -107,11 +107,11 @@ local function InitItemDataMCM()
         if collectible then
             if ReactionAPI.UserSettings["cModded"][collectible.Name] then
                 if ReactionAPI.UserSettings["cModded"][collectible.Name] == ReactionAPI.Setting.DEFAULT then
-                    ReactionAPI.CollectibleData[collectible.ID] = collectible.Quality
+                    ReactionAPI.CollectibleQuality[collectible.ID] = collectible.Quality
                 elseif ReactionAPI.UserSettings["cModded"][collectible.Name] == ReactionAPI.Setting.IGNORE then
-                    ReactionAPI.CollectibleData[collectibleID] = ReactionAPI.QualityStatus.NO_ITEMS
+                    ReactionAPI.CollectibleQuality[collectibleID] = ReactionAPI.QualityStatus.NO_ITEMS
                 else
-                    ReactionAPI.CollectibleData[collectible.ID] = ReactionAPI.UserSettings["cModded"][collectible.Name]
+                    ReactionAPI.CollectibleQuality[collectible.ID] = ReactionAPI.UserSettings["cModded"][collectible.Name]
                 end
             end
         end
@@ -122,7 +122,7 @@ local function InitItemData()
     for collectibleID = 1, ReactionAPI.MaxCollectibleID do
         local collectible = Isaac.GetItemConfig():GetCollectible(collectibleID)
         if collectible then
-            ReactionAPI.CollectibleData[collectibleID] = collectible.Quality
+            ReactionAPI.CollectibleQuality[collectibleID] = collectible.Quality
         end
     end
 end
@@ -149,7 +149,7 @@ local function InitModData()
 
     ReactionAPI.MaxCollectibleID = GetMaxCollectibleID()
 
-    ReactionAPI.CollectibleData[0] = ReactionAPI.QualityStatus.NO_ITEMS
+    ReactionAPI.CollectibleQuality[0] = ReactionAPI.QualityStatus.NO_ITEMS
 
     if ModConfigMenu then
         InitUserData()

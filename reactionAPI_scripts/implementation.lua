@@ -623,7 +623,7 @@ local function SetCraneData() --onPostUpdate()
 end
 
 local function SetCollectibleQualityStatus(CollectibleID, IsBlind, IsNew) --SetQualityStatus()
-    local itemQuality = ReactionAPI.CollectibleData[CollectibleID] or ReactionAPI.QualityStatus.GLITCHED
+    local itemQuality = ReactionAPI.CollectibleQuality[CollectibleID] or ReactionAPI.QualityStatus.GLITCHED
     if itemQuality > ReactionAPI.QualityStatus.NO_ITEMS then
         cQualityStatus[IsBlind][IsNew] = cQualityStatus[IsBlind][IsNew] | 1 << (itemQuality + 1)
     end
@@ -632,7 +632,7 @@ end
 local function SetCraneQualityStatus(CraneEntity, IsNew) -- SetQualityStatus()
     local collectibleID = SlotData[Crane].ItemData[CraneEntity.InitSeed]
     if collectibleID then
-        local itemQuality = ReactionAPI.CollectibleData[collectibleID] or ReactionAPI.QualityStatus.GLITCHED
+        local itemQuality = ReactionAPI.CollectibleQuality[collectibleID] or ReactionAPI.QualityStatus.GLITCHED
         if itemQuality > ReactionAPI.QualityStatus.NO_ITEMS then
             SlotData[Crane].QualityStatus[IsNew] = SlotData[Crane].QualityStatus[IsNew] | 1 << (itemQuality + 1)
         end

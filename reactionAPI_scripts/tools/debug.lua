@@ -277,7 +277,7 @@ local function onExecuteCmd(cmd, parameters)
     if cmd == 'maxID' then
         Isaac.ConsoleOutput(ReactionAPI.MaxCollectibleID)
     elseif cmd == 'CollectibleData' then
-        Isaac.ConsoleOutput(ReactionAPI.CollectibleData[tonumber(parameters)])
+        Isaac.ConsoleOutput(ReactionAPI.CollectibleQuality[tonumber(parameters)])
     end
 end
 

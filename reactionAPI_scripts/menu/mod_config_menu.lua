@@ -4,7 +4,7 @@ local function ResetItemQualityToDEFAULT()
     for collectibleID = 1, ReactionAPI.MaxCollectibleID do
         local collectible = Isaac.GetItemConfig():GetCollectible(collectibleID)
         if collectible then
-            ReactionAPI.CollectibleData[collectibleID] = collectible.Quality
+            ReactionAPI.CollectibleQuality[collectibleID] = collectible.Quality
             if collectibleID < CollectibleType.NUM_COLLECTIBLES then
                 ReactionAPI.UserSettings["cVanilla"][collectibleID] = ReactionAPI.Setting.DEFAULT
             else
@@ -18,7 +18,7 @@ local function SetQuestItemsToIGNORE()
     for collectibleID = 1, ReactionAPI.MaxCollectibleID do
         local collectible = Isaac.GetItemConfig():GetCollectible(collectibleID)
         if collectible and collectible:HasTags(ItemConfig.TAG_QUEST) then
-            ReactionAPI.CollectibleData[collectibleID] = ReactionAPI.QualityStatus.NO_ITEMS
+            ReactionAPI.CollectibleQuality[collectibleID] = ReactionAPI.QualityStatus.NO_ITEMS
             if collectibleID < CollectibleType.NUM_COLLECTIBLES then
                 ReactionAPI.UserSettings["cVanilla"][collectibleID] = ReactionAPI.Setting.IGNORE
             else
@@ -174,11 +174,11 @@ function MCM:InitModConfigMenu()
                 end,
                 OnChange = function(currentSetting)
                     if currentSetting == ReactionAPI.Setting.DEFAULT then
-                        ReactionAPI.CollectibleData[collectibleID] = collectible.Quality
+                        ReactionAPI.CollectibleQuality[collectibleID] = collectible.Quality
                     elseif currentSetting == ReactionAPI.Setting.IGNORE then
-                        ReactionAPI.CollectibleData[collectibleID] = ReactionAPI.QualityStatus.NO_ITEMS
+                        ReactionAPI.CollectibleQuality[collectibleID] = ReactionAPI.QualityStatus.NO_ITEMS
                     else
-                        ReactionAPI.CollectibleData[collectibleID] = currentSetting
+                        ReactionAPI.CollectibleQuality[collectibleID] = currentSetting
                     end
                     ReactionAPI.UserSettings["cVanilla"][collectibleID] = currentSetting
                 end,
@@ -222,11 +222,11 @@ function MCM:InitModConfigMenu()
                 end,
                 OnChange = function(currentSetting)
                     if currentSetting == ReactionAPI.Setting.DEFAULT then
-                        ReactionAPI.CollectibleData[collectibleID] = collectible.Quality
+                        ReactionAPI.CollectibleQuality[collectibleID] = collectible.Quality
                     elseif currentSetting == ReactionAPI.Setting.IGNORE then
-                        ReactionAPI.CollectibleData[collectibleID] = ReactionAPI.QualityStatus.NO_ITEMS
+                        ReactionAPI.CollectibleQuality[collectibleID] = ReactionAPI.QualityStatus.NO_ITEMS
                     else
-                        ReactionAPI.CollectibleData[collectibleID] = currentSetting
+                        ReactionAPI.CollectibleQuality[collectibleID] = currentSetting
                     end
                     ReactionAPI.UserSettings["cModded"][collectible.Name] = currentSetting
                 end,
