@@ -48,7 +48,6 @@ local delayRequestedGlobalReset = false
 local requestedPickupResets = {} -- API EXPOSED -- WRITE ONLY
 
 local newFloor = false
-local inRoomTransition = false
 
 ---------------------------------------------AUXILIARY---------------------------------------------
 
@@ -825,26 +824,6 @@ local function RecordPoofPosition(_, EntityEffect)
     table.insert(poofPositions, EntityEffect.Position)
 end
 
-local function CoverForCollectibleUpdate(_, EntityPickup)
-    if not inRoomTransition then
-        return
-    end
-    if IsTouchedCollectible(EntityPickup) then
-        return
-    end
-
-    if blindPedestals[EntityPickup.Index] ~= nil then
-        return
-    else
-        local isBlind = IsBlindCollectible(EntityPickup)
-        if isBlind then
-            blindPedestals[EntityPickup.Index] = EntityPickup
-        end
-    end
-end
--- A function that updates collectible data when MC_POST_PICKUP_UPDATE
--- cannot due to not being fired.
-
 local function onCollectibleUpdate(_, EntityPickup)
 end
 
@@ -915,10 +894,6 @@ local function RecordUnobtainableData(_, collectibleId, itemPool)
 end
 
 local function onPostUpdate()
-    if inRoomTransition then
-        inRoomTransition = false
-        ReactionAPI:RemoveCallback(ModCallbacks.MC_POST_PICKUP_RENDER, CoverForCollectibleUpdate)
-    end
     HandleNonExistentEntities()
     SetCraneData()
     SetQualityStatus()
@@ -943,8 +918,6 @@ end
 local function ResetOnNewRoom()
     FullReset()
     ResetCraneDataOnPermanentNewLevel()
-    inRoomTransition = true
-    ReactionAPI:AddPriorityCallback(ModCallbacks.MC_POST_PICKUP_RENDER, CallbackPriority.IMPORTANT, CoverForCollectibleUpdate, PickupVariant.PICKUP_COLLECTIBLE)
 end
 
 local function ResetOnExit()
