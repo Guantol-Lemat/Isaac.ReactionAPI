@@ -25,11 +25,11 @@ local shopItems
 local craneBestQuality
 local craneQualityStatus
 
-local visible = ReactionAPI.Context.Visibility.VISIBLE
-local blind = ReactionAPI.Context.Visibility.BLIND
-local absolute = ReactionAPI.Context.Visibility.ABSOLUTE
-local newOnly = ReactionAPI.Context.Filter.NEW
-local all = ReactionAPI.Context.Filter.ALL
+local visible = ReactionAPI.Visibility.VISIBLE
+local blind = ReactionAPI.Visibility.BLIND
+local absolute = ReactionAPI.Visibility.ABSOLUTE
+local newOnly = ReactionAPI.Filter.NEW
+local all = ReactionAPI.Filter.ALL
 
 local debugLines = {
     [ReactionAPI.QualityStatus.NO_ITEMS] = "NO_ITEMS",
@@ -81,8 +81,8 @@ local Keybinds = {
 local function FetchData()
     local collectibleData = ReactionAPI.GetCollectibleData()
 
-    cBestVisibleQuality = collectibleData.BestQuality[ReactionAPI.Context.Visibility.VISIBLE]
-    cBestBlindQuality = collectibleData.BestQuality[ReactionAPI.Context.Visibility.BLIND]
+    cBestVisibleQuality = collectibleData.BestQuality[ReactionAPI.Visibility.VISIBLE]
+    cBestBlindQuality = collectibleData.BestQuality[ReactionAPI.Visibility.BLIND]
     cQualityStatus = collectibleData.QualityStatus
     collectiblesInRoom = collectibleData.InRoom
     newCollectibles = collectibleData.New

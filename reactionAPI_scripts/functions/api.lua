@@ -2,25 +2,25 @@ ReactionAPI.Interface = {}
 
 --- This function should be called during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
 --  Calling this function anywhere else might lead to the retrieval of incorrect data
---- @param Type ReactionAPI.Context.Visibility @can be nil
+--- @param Type ReactionAPI.Visibility @can be nil
 --- @return ReactionAPI.QualityStatus
---- @see ReactionAPI.Context.Visibility
+--- @see ReactionAPI.Visibility
 --- @see ReactionAPI.QualityStatus
---- @usage if ReactionAPI.Interface.cGetBestQuality(ReactionAPI.Context.Visibility.VISIBLE) >= ReactionAPI.QualityStatus.QUALITY_3 then
+--- @usage if ReactionAPI.Interface.cGetBestQuality(ReactionAPI.Visibility.VISIBLE) >= ReactionAPI.QualityStatus.QUALITY_3 then
 --              WePoggin()
 --         end
 ReactionAPI.Interface.cGetBestQuality = ReactionAPI.GetCollectibleBestQuality
 
 --- This function should be called during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
 --  Calling this function anywhere else might lead to the retrieval of incorrect data
---- @param Visibility ReactionAPI.Context.Visibility @can be nil
---- @param Filter ReactionAPI.Context.Filter @can be nil
+--- @param Visibility ReactionAPI.Visibility @can be nil
+--- @param Filter ReactionAPI.Filter @can be nil
 --- @return table or integer @an integer is returned if both Visibility and Filter are ~= nil
---- @see ReactionAPI.Context.Visibility
+--- @see ReactionAPI.Visibility
 --- @usage cQualityStatus = ReactionAPI.Interface.cGetQualityStatus()
---         cVisibleQualityStatus = ReactionAPI.Interface.cGetQualityStatus(ReactionAPI.Context.Visibility.VISIBLE)
---         cNewQualityStatus = ReactionAPI.Interface.cGetQualityStatus(nil, ReactionAPI.Context.Visibility.NEW) 
---         cNewAbsoluteQualityStatus = ReactionAPI.Interface.cGetQualityStatus(ReactionAPI.Context.Visibility.ABSOLUTE, ReactionAPI.Context.Visibility.NEW)
+--         cVisibleQualityStatus = ReactionAPI.Interface.cGetQualityStatus(ReactionAPI.Visibility.VISIBLE)
+--         cNewQualityStatus = ReactionAPI.Interface.cGetQualityStatus(nil, ReactionAPI.Visibility.NEW) 
+--         cNewAbsoluteQualityStatus = ReactionAPI.Interface.cGetQualityStatus(ReactionAPI.Visibility.ABSOLUTE, ReactionAPI.Visibility.NEW)
 ReactionAPI.Interface.cGetQualityStatus = ReactionAPI.GetCollectibleQualityStatus
 
 --- This function should be called during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
@@ -34,14 +34,14 @@ ReactionAPI.Interface.GetCollectibleData = ReactionAPI.GetCollectibleData
 --  Calling this function anywhere else might lead to the retrieval of incorrect data
 --  If there are multiple flags set in the partition and the AllPresent parameter can be set to true so that the function will only return true if all Qualities are present
 --- @param PresencePartition ReactionAPI.QualityPartitions @if nil then the function will throw an ERROR and return nil
---- @param Visibility ReactionAPI.Context.Visibility @default ReactionAPI.Context.Visibility.VISIBLE
---- @param Filter ReactionAPI.Context.Filter @default false
+--- @param Visibility ReactionAPI.Visibility @default ReactionAPI.Visibility.VISIBLE
+--- @param Filter ReactionAPI.Filter @default false
 --- @param AllPresent boolean @default false
 --- @return boolean
 --- @see ReactionAPI.QualityPartitions
---- @see ReactionAPI.Context.Visibility
+--- @see ReactionAPI.Visibility
 --- @usage local partition = ReactionAPI.QualityPartitions.QUALITY_0 | ReactionAPI.QualityPartitions.QUALITY_1
---         if ReactionAPI.Interface.cCheckForPresence(partition, ReactionAPI.Context.VISIBLE, false, false) then
+--         if ReactionAPI.Interface.cCheckForPresence(partition, ReactionAPI.VISIBLE, false, false) then
 --              --[[ custom code ]]
 --         end
 ReactionAPI.Interface.cCheckForPresence = ReactionAPI.CheckForCollectiblePresence
@@ -50,14 +50,14 @@ ReactionAPI.Interface.cCheckForPresence = ReactionAPI.CheckForCollectiblePresenc
 --  Calling this function anywhere else might lead to the retrieval of incorrect data
 --  If there are multiple flags set in the partition then the AllAbsent parameter can be set to true so that the function will only return true if all Qualities are present
 --- @param AbsencePartition ReactionAPI.QualityPartitions @if nil then the function will throw an ERROR and return nil
---- @param Visibility ReactionAPI.Context.Visibility @default ReactionAPI.Context.Visibility.VISIBLE
---- @param Filter ReactionAPI.Context.Filter @default false
+--- @param Visibility ReactionAPI.Visibility @default ReactionAPI.Visibility.VISIBLE
+--- @param Filter ReactionAPI.Filter @default false
 --- @param AllAbsent boolean @default false
 --- @return boolean
 --- @see ReactionAPI.QualityPartitions
---- @see ReactionAPI.Context.Visibility
+--- @see ReactionAPI.Visibility
 --- @usage local partition = ReactionAPI.QualityPartitions.QUALITY_3 | ReactionAPI.QualityPartitions.QUALITY_4
---         if ReactionAPI.Interface.cCheckForAbsence(partition, ReactionAPI.Context.VISIBLE, false, true) then
+--         if ReactionAPI.Interface.cCheckForAbsence(partition, ReactionAPI.VISIBLE, false, true) then
 --              --[[ custom code ]]
 --         end
 ReactionAPI.Interface.cCheckForAbsence = ReactionAPI.CheckForCollectibleAbsence
@@ -73,10 +73,10 @@ ReactionAPI.Interface.slotGetBestQuality = ReactionAPI.GetSlotBestQuality
 --- This function should be called during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
 --  Calling this function anywhere else might lead to the retrieval of incorrect data
 --- @param SlotType ReactionAPI.SlotType @cannot be ALL, returns nil if not set
---- @param Filter ReactionAPI.Context.Filter @can be nil
+--- @param Filter ReactionAPI.Filter @can be nil
 --- @return table or integer @an integer is returned if Filter is ~= nil
 --- @see ReactionAPI.SlotType
---- @see ReactionAPI.Context.Filter
+--- @see ReactionAPI.Filter
 ReactionAPI.Interface.slotGetQualityStatus = ReactionAPI.GetSlotQualityStatus
 
 --- This function should be called during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
