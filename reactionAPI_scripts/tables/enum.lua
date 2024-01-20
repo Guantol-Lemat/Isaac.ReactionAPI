@@ -89,33 +89,6 @@ ReactionAPI.Music = {
     }
 }
 
-ReactionAPI.ModCallbacks = {}
-
-ReactionAPI.ModCallbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE = "REACTIONAPI_GLOWING_HOURGLASS_UPDATE"
-
-ReactionAPI.HourglassUpdate = {
-    Deleted = 1,
-    New = 2,
-    Reverted = 3,
-    New_Session = 4,
-    Continued_Session = 5,
-    New_Stage = 6,
-    New_Absolute_Stage = 7,
-    Previous_Stage_Last_Room = 8,
-    Previous_Stage_Penultimate_Room = 9,
-    Failed_Stage_Return = 10,
-    Save_Pre_Room_Clear_State = 11,
-    Save_Pre_Curse_Damage_Health = 12
-}
-
-ReactionAPI.HourglassStateType = {
-    State_Null = 0,
-    Transition_To_Cleared_Room = 1,
-    Transition_To_Uncleared_Room = 2,
-    Cleared_Room = 3,
-    Session_Start = 4
-}
-
 ReactionAPI.MCMStrings = {
     cOptimizeIsBlindPedestal = {
         [true] = "Performance",

@@ -1330,10 +1330,10 @@ end
 
 ReactionAPI:AddCallback(ModCallbacks.MC_POST_PICKUP_UPDATE, SetFlipData, PickupVariant.PICKUP_COLLECTIBLE)
 
-ReactionAPI:AddCallback(ReactionAPI.ModCallbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnNewHourglassGameState, ReactionAPI.HourglassUpdate.New)
+-- ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnNewHourglassGameState, GHManager.HourglassUpdate.New_State)
 
-ReactionAPI:AddCallback(ReactionAPI.ModCallbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnRevertedHourglassGameState, ReactionAPI.HourglassUpdate.Deleted)
-ReactionAPI:AddCallback(ReactionAPI.ModCallbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnRevertedHourglassGameState, ReactionAPI.HourglassUpdate.Reverted)
+-- ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnRevertedHourglassGameState, GHManager.HourglassUpdate.Rewind_Previous_Room)
+-- ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnRevertedHourglassGameState, GHManager.HourglassUpdate.Rewind_Current_Room)
 
 ---------------------------------------------------------------------------------------------------
 ----------------------------------------OVERWRITE FUNCTIONS----------------------------------------

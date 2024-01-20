@@ -168,8 +168,8 @@ end
 local function SaveSettings()
     ReactionAPI.CopyRunData()
     ReactionAPI.UserSettings.RunData = DeepCopy(ReactionAPI.RunData)
-    ReactionAPI.CopyUtilityData()
-    ReactionAPI.UserSettings.UtilityData = DeepCopy(ReactionAPI.UtilityData)
+    ReactionAPI.CopyGHManagerData()
+    ReactionAPI.UserSettings.GHManagerData = DeepCopy(ReactionAPI.GHManagerData)
     ReactionAPI:SaveData(json.encode(ReactionAPI.UserSettings))
 end
 

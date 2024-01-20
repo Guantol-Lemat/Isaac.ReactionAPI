@@ -1,39 +1,7 @@
-local json = require("json")
 local log = require("reactionAPI_scripts.tools.log")
 local music = require("reactionAPI_scripts.tables.music")
 
 local game = Game()
-
-local utilitySaveDataFetched = false
-local floorTransitions = 0
-
-local defaultUtilityData = {
-    FloorTransitions = 0
-}
-
-ReactionAPI.UtilityData = {}
-
-function ReactionAPI.CopyUtilityData()
-    ReactionAPI.UtilityData.FloorTransitions = floorTransitions
-end
-
-local function LoadUtilityData(_, IsContinued)
-    if IsContinued and ReactionAPI:HasData() then
-        local loadedData = json.decode(ReactionAPI:LoadData())
-        ReactionAPI.UtilityData = loadedData["UtilityData"] or ReactionAPI.Utilities.DeepCopy(defaultUtilityData)
-    else
-        ReactionAPI.UtilityData = ReactionAPI.Utilities.DeepCopy(defaultUtilityData)
-    end
-    floorTransitions = ReactionAPI.UtilityData.FloorTransitions or 0
-
-    utilitySaveDataFetched = true
-end
-
-ReactionAPI:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, LoadUtilityData)
-
-ReactionAPI:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT, function()
-    utilitySaveDataFetched = false
-end)
 
 ReactionAPI.Utilities = {}
 
@@ -125,38 +93,6 @@ else
             end
         end
         return false
-    end
-end
-
-if REPENTOGON then
-    ReactionAPI.Utilities.CanStartTrueCoop = function()
-        return Isaac.CanStartTrueCoop()
-    end
-else
-    local function IsFirstEverFloor()
-        if not utilitySaveDataFetched then
-            return nil
-        end
-        if game:GetVictoryLap() then
-            return false
-        end
-        local level = game:GetLevel()
-        return level:GetStage() == LevelStage.STAGE1_1 and level:GetStageType() < StageType.STAGETYPE_REPENTANCE and floorTransitions < 1
-    end
-
-    local function WasFloorExplored()
-        local level = game:GetLevel()
-        if level:GetCurrentRoomIndex() == level:GetStartingRoomIndex() then
-            return level.EnterDoor ~= -1
-        end
-        return true
-    end
-
-    ReactionAPI:AddCallback(ModCallbacks.MC_PRE_USE_ITEM, function() floorTransitions = -1 end, CollectibleType.COLLECTIBLE_R_KEY)
-    ReactionAPI:AddCallback(ModCallbacks.MC_POST_NEW_LEVEL, function() floorTransitions = floorTransitions + 1 end)
-
-    ReactionAPI.Utilities.CanStartTrueCoop = function()
-        return IsFirstEverFloor() and not WasFloorExplored()
     end
 end
 
