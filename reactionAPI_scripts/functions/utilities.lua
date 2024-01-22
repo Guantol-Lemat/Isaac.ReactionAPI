@@ -187,7 +187,7 @@ ReactionAPI.Utilities.GetCurrentRoomMusic = function(UntrackedCasesOnly)
     end
 
     if UntrackedCasesOnly then
-        if room.GetBossID() == BossType.HUSH then
+        if room:GetBossID() == BossType.HUSH then
             if #Isaac.FindByType(EntityType.ENTITY_HUSH) > 0 then
                 return {
                     CurrentTrack = Music.MUSIC_HUSH_BOSS
@@ -355,11 +355,14 @@ ReactionAPI.Utilities.GetSoundtrackMenuMusic = function()
         end
         if SoundtrackSongList then
             local soundtrackMenuMusic = {}
-            stageTrack.CurrentTrack = finddefaultsongindexbyID(stageTrack.CurrentTrack)
+            stageTrack.CurrentTrack = finddefaultsongindexbyID(MMC.GetCorrectedTrackNum(stageTrack.CurrentTrack))
             soundtrackMenuMusic.CurrentTrack = findsongbydefaultIndex(stageTrack.CurrentTrack, false, false)
-            for queueOrder, track in ipairs(stageTrack.Queue) do
-                track = finddefaultsongindexbyID(track)
-                soundtrackMenuMusic.Queue[queueOrder] = findsongbydefaultIndex(track, false, false)
+            if stageTrack.Queue then
+                soundtrackMenuMusic.Queue = {}
+                for queueOrder, track in ipairs(stageTrack.Queue) do
+                    track = finddefaultsongindexbyID(MMC.GetCorrectedTrackNum(track))
+                    soundtrackMenuMusic.Queue[queueOrder] = findsongbydefaultIndex(track, false, false)
+                end
             end
             return soundtrackMenuMusic
         end

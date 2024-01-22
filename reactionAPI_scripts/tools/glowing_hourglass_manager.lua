@@ -1,4 +1,4 @@
-local DEBUG = true
+local DEBUG = false
 
 local json = require("json")
 local log = require("reactionAPI_scripts.tools.log")
@@ -96,13 +96,6 @@ local previousStageHourglassGameState = {
 
 ---------------------------------------------SAVE DATA---------------------------------------------
 
---This section should be customized to fit the needs of your specific mod
-
--- This section should be customized to fit the needs of your specific mod,
--- alongside the MC_PRE_GAME_EXIT callback function
--- Save Data is only need if your mod doesn't use REPENTOGON or if you wish to have
--- compatibility with vanilla
-
 local ModReference = ReactionAPI
 
 local defaultManagerData = {
@@ -124,18 +117,6 @@ local function LoadGHManagerData(IsContinued)
     end
     previousStageHourglassGameState.Type = GHManagerData.RewindStateType
 end
-
---[[
-
-local function ExampleSaveDataFunction()
-    local SaveData = DataToSave
-    GHManager:SavaManagerData(SaveData)
-    ModReference:SaveData(json.encode(SaveData))
-end
-
-ModReference:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT, ExampleSaveDataFunction)
-
-]]
 
 ---------------------------------------------UTILITIES---------------------------------------------
 
