@@ -2,7 +2,6 @@ local DEBUG = true
 
 local json = require("json")
 local log = require("reactionAPI_scripts.tools.log")
-local DeepCopy = ReactionAPI.Utilities.DeepCopy
 
 local version = 1.0
 
@@ -14,7 +13,7 @@ if GHManager then
     else
         print("Older version of Glowing Hourglass Manager detected")
         print("Removing Glowing Hourglass Manager v" .. GHManager.Version)
-        GHManager.Utilities.RemoveAllCallbacks()
+        GHManager.Utilities:RemoveAllCallbacks()
     end
 end
 
@@ -57,18 +56,19 @@ end
 GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE = {}
 
 GHManager.HourglassUpdate = {
-    Rewind_Previous_Room = 1,
-    New_State = 2,
-    Rewind_Current_Room = 3,
-    New_Session = 4,
-    Continued_Session = 5,
-    New_Stage = 6,
-    New_Absolute_Stage = 7,
-    Previous_Stage_Last_Room = 8,
-    Previous_Stage_Penultimate_Room = 9,
-    Failed_Stage_Return = 10,
-    Save_Pre_Room_Clear_State = 11,
-    Save_Pre_Curse_Damage_Health = 12
+    New_State = 1,
+    New_State_Warped = 2,
+    Rewind_Previous_Room = 3,
+    Rewind_Current_Room = 4,
+    New_Session = 5,
+    Continued_Session = 6,
+    New_Stage = 7,
+    New_Absolute_Stage = 8,
+    Previous_Stage_Last_Room = 9,
+    Previous_Stage_Penultimate_Room = 10,
+    Failed_Stage_Return = 11,
+    Save_Pre_Room_Clear_State = 12,
+    Save_Pre_Curse_Damage_Health = 13
 }
 
 GHManager.HourglassStateType = {
@@ -98,25 +98,44 @@ local previousStageHourglassGameState = {
 
 --This section should be customized to fit the needs of your specific mod
 
+-- This section should be customized to fit the needs of your specific mod,
+-- alongside the MC_PRE_GAME_EXIT callback function
+-- Save Data is only need if your mod doesn't use REPENTOGON or if you wish to have
+-- compatibility with vanilla
+
+local ModReference = ReactionAPI
+
 local defaultManagerData = {
     RewindStateType = GHManager.HourglassStateType.Session_Start
 }
 
-ReactionAPI.GHManagerData = DeepCopy(defaultManagerData)
-
-function ReactionAPI.CopyGHManagerData()
-    ReactionAPI.GHManagerData.RewindStateType = previousStageHourglassGameState.Type
+function GHManager:SaveManagerData(SaveDataTable)
+    SaveDataTable.GHManagerData = {}
+    SaveDataTable.GHManagerData.RewindStateType = previousStageHourglassGameState.Type
 end
 
 local function LoadGHManagerData(IsContinued)
-    if IsContinued and ReactionAPI:HasData() then
-        local loadedData = json.decode(ReactionAPI:LoadData())
-        ReactionAPI.GHManagerData = loadedData["GHManagerData"] or DeepCopy(defaultManagerData)
+    local GHManagerData = {}
+    if IsContinued and ModReference:HasData() then
+        local loadedData = json.decode(ModReference:LoadData())
+        GHManagerData = loadedData["GHManagerData"] or defaultManagerData
     else
-        ReactionAPI.GHManagerData = DeepCopy(defaultManagerData)
+        GHManagerData = defaultManagerData
     end
-    previousStageHourglassGameState.Type = ReactionAPI.GHManagerData.RewindStateType
+    previousStageHourglassGameState.Type = GHManagerData.RewindStateType
 end
+
+--[[
+
+local function ExampleSaveDataFunction()
+    local SaveData = DataToSave
+    GHManager:SavaManagerData(SaveData)
+    ModReference:SaveData(json.encode(SaveData))
+end
+
+ModReference:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT, ExampleSaveDataFunction)
+
+]]
 
 ---------------------------------------------UTILITIES---------------------------------------------
 
@@ -237,7 +256,14 @@ local function HandleGlowingHourglassTransactions()
                 -- exit the Stage. if you use Glowing Hourglass right after, you will
                 -- be taken to the Boss Fight of the previous floor.
             end
-            updateType = GHManager.HourglassUpdate.New_State
+            if level.LeaveDoor == -1 then
+                updateType = GHManager.HourglassUpdate.New_State_Warped
+            else
+                updateType = GHManager.HourglassUpdate.New_State
+            end
+            -- Technically to detect a Warp you need to check for level.LeaveDoor == -1 and level.EnterDoor ~= -1
+            -- but that extra is needed to account for Stage Transitions, and since we already account for them there
+            -- is no need
             Isaac.RunCallbackWithParam(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, updateType, transactionCount + 1, updateType, shouldOverwriteHealthState)
             wasNewStage = false
         end
@@ -347,6 +373,10 @@ if DEBUG then
         log.print("New Glowing Hourglass Transaction: " .. TransactionID)
     end
 
+    local function PrintOnNewGHWarpedTransaction(_, TransactionID)
+        log.print("New Glowing Hourglass Warp: " .. TransactionID)
+    end
+
     local function PrintOnDeletedGHTransaction(_, TransactionID, _, _, WasPreviousFloorStateNull)
         log.print("Deleted Glowing Hourglass Transaction: " .. TransactionID)
         log.print("Was Previous Floor State Null: " .. tostring(WasPreviousFloorStateNull))
@@ -393,6 +423,7 @@ if DEBUG then
     end
 
     ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, PrintOnNewGHTransaction, GHManager.HourglassUpdate.New_State)
+    ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, PrintOnNewGHWarpedTransaction, GHManager.HourglassUpdate.New_State_Warped)
     ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, PrintOnDeletedGHTransaction, GHManager.HourglassUpdate.Rewind_Previous_Room)
     ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, PrintOnRevertedGHTransaction, GHManager.HourglassUpdate.Rewind_Current_Room)
     ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, PrintOnNewGHSession, GHManager.HourglassUpdate.New_Session)
