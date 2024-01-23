@@ -51,8 +51,11 @@ local requestedPickupResets = {} -- API EXPOSED -- WRITE ONLY
 
 local initializeCollectibleIdLater = false
 local updateFlipData = false
+local wasFlipUsed = false
 
 local newFloor = false
+local checkedCranePrizes = false
+local hasCraneGivenPrize = false
 
 ---------------------------------------------AUXILIARY---------------------------------------------
 
@@ -166,6 +169,32 @@ local cBestQuality = { -- API EXPOSED -- READ ONLY
     ItemData = {},
     InRoom = {},
     New = {}
+}
+
+local fakeNewData = { -- API EXPOSED -- READ ONLY
+    cranePrize = {
+        New = {[visible] = {}, [blind] = {}},
+        QualityStatus = {
+            [visible] = {[filterNEW] = 0x00, [filterALL] = 0x00},
+            [blind] = {[filterNEW] = 0x00, [filterALL] = 0x00},
+            [absolute] = {[filterNEW] = 0x00, [filterALL] = 0x00}
+        }
+    },
+    flipVisible = {
+        New = {[visible] = {}, [blind] = {}},
+        QualityStatus = {
+            [visible] = {[filterNEW] = 0x00, [filterALL] = 0x00},
+            [blind] = {[filterNEW] = 0x00, [filterALL] = 0x00},
+            [absolute] = {[filterNEW] = 0x00, [filterALL] = 0x00}
+        }
+    },
+    flipShadow = {
+        New = {},
+        QualityStatus = {
+            [filterNEW] = 0x00,
+            [filterALL] = 0x00
+        }
+    }
 }
 
 -------------------------------------------CUSTOM RULES--------------------------------------------
@@ -581,6 +610,20 @@ local function GetFullCycleData(EntityPickup) -- REPENTOGON only
     return cycleData
 end
 
+local function GetNEWTargetTable(EntityID, EntityExisted, CycleNum)
+    local isCycling = CycleNum > 1
+    if hasCraneGivenPrize and not EntityExisted and not isCycling then
+        return fakeNewData.cranePrize.New
+    end
+
+    local isFlipPedestal = not not flipData.InRoom[EntityID]
+    if wasFlipUsed and isFlipPedestal and not isCycling then
+        return fakeNewData.flipVisible.New
+    else
+        return newCollectibles
+    end
+end
+
 ------------------------------------------------SET------------------------------------------------
 
 local function SetCollectibleData(EntityPickup)
@@ -588,6 +631,7 @@ end
 
 if REPENTOGON then
     SetCollectibleData = function(EntityPickup)
+        local didPedestalExist = roomPedestals[EntityPickup.Index] ~= nil
         roomPedestals[EntityPickup.Index] = EntityPickup
 
         if EntityPickup:IsShopItem() then
@@ -605,8 +649,9 @@ if REPENTOGON then
 
             local cycleData = GetFullCycleData(EntityPickup)
             collectiblesInRoom[EntityPickup.Index] = cycleData
+            local newDataTable = GetNEWTargetTable(EntityPickup.Index, didPedestalExist, #cycleData)
             for _, collectibleId in ipairs(cycleData) do
-                newCollectibles[isBlind][collectibleId] = true
+                newDataTable[isBlind][collectibleId] = true
             end
             return
         end
@@ -624,16 +669,18 @@ if REPENTOGON then
             collectiblesInRoom[EntityPickup.Index] = ShiftCycleData(collectiblesInRoom[EntityPickup.Index])
             if CompareCycleData(EntityPickup.Index, cycleData) then
                 if previousIsBlind ~= isBlind then
+                    local newDataTable = GetNEWTargetTable(EntityPickup.Index, didPedestalExist, #cycleData)
                     for _, collectibleId in ipairs(cycleData) do
-                        newCollectibles[isBlind][collectibleId] = true
+                        newDataTable[isBlind][collectibleId] = true
                     end
                 end
                 return
             end
 
             collectiblesInRoom[EntityPickup.Index] = cycleData
+            local newDataTable = GetNEWTargetTable(EntityPickup.Index, didPedestalExist, #cycleData)
             for _, collectibleId in ipairs(cycleData) do
-                newCollectibles[isBlind][collectibleId] = true
+                newDataTable[isBlind][collectibleId] = true
             end
         end
     end
@@ -641,6 +688,7 @@ else
     SetCollectibleData = function(EntityPickup)
         local isBlind = nil --NOT INITIALIZED YET
 
+        local didPedestalExist = roomPedestals[EntityPickup.Index] ~= nil
         roomPedestals[EntityPickup.Index] = EntityPickup
 
         if EntityPickup:IsShopItem() then
@@ -662,7 +710,9 @@ else
         end
 
         if collectiblesInRoom[EntityPickup.Index][EntityPickup.SubType] == nil then
-            newCollectibles[isBlind][EntityPickup.SubType] = true
+            local cycleNum = ReactionAPI.Utilities.GetTableLength(collectiblesInRoom[EntityPickup.Index]) + 1
+            local newDataTable = GetNEWTargetTable(EntityPickup.Index, didPedestalExist, cycleNum)
+            newDataTable[isBlind][EntityPickup.SubType] = true
             collectiblesInRoom[EntityPickup.Index][EntityPickup.SubType] = ReactionAPI.Utilities.GetTableLength(collectiblesInRoom[EntityPickup.Index]) + 1
         end
     end
@@ -695,7 +745,7 @@ end
 local function AssignFlipItems() -- Not actual Definition, used so that LoadRunData works
 end
 
-local function SetCollectibleQualityStatus(CollectibleID, IsBlind, IsNew) --SetQualityStatus()
+local function SetCollectibleQualityStatus(CollectibleID, IsBlind, IsNew) -- SetQualityStatus()
     local itemQuality = ReactionAPI.CollectibleQuality[CollectibleID] or ReactionAPI.QualityStatus.GLITCHED
     if itemQuality > ReactionAPI.QualityStatus.NO_ITEMS then
         cQualityStatus[IsBlind][IsNew] = cQualityStatus[IsBlind][IsNew] | 1 << (itemQuality + 1)
@@ -803,6 +853,35 @@ local function ResetUpdateLocalVariables() --onLatePostUpdate() --FullReset()
     poofPositions = {}
     newCollectibles = {[visible] = {}, [blind] = {}}
     slotData[Crane].New = {}
+    flipData.New = {}
+    wasFlipUsed = false
+    checkedCranePrizes = false
+    hasCraneGivenPrize = false
+    fakeNewData = {
+    cranePrize = {
+        New = {[visible] = {}, [blind] = {}},
+        QualityStatus = {
+            [visible] = {[filterNEW] = 0x00, [filterALL] = 0x00},
+            [blind] = {[filterNEW] = 0x00, [filterALL] = 0x00},
+            [absolute] = {[filterNEW] = 0x00, [filterALL] = 0x00}
+        }
+    },
+    flipVisible = {
+        New = {[visible] = {}, [blind] = {}},
+        QualityStatus = {
+            [visible] = {[filterNEW] = 0x00, [filterALL] = 0x00},
+            [blind] = {[filterNEW] = 0x00, [filterALL] = 0x00},
+            [absolute] = {[filterNEW] = 0x00, [filterALL] = 0x00}
+        }
+    },
+    flipShadow = {
+        New = {},
+        QualityStatus = {
+            [filterNEW] = 0x00,
+            [filterALL] = 0x00
+        }
+    }
+}
 end --Reset Variables that get reset at the end of every Update cycle
 
 local function ResetUpdatePersistentVariables() --FullReset()
@@ -949,6 +1028,20 @@ local function RecordPoofPosition(_, EntityEffect)
     table.insert(poofPositions, EntityEffect.Position)
 end
 
+local function CheckForCranePrizes()
+    if checkedCranePrizes then
+        return
+    end
+    for _, crane in ipairs(Isaac.FindByType(6, 16, -1, true, false)) do
+        if crane:GetSprite():IsEventTriggered("Prize") then
+            hasCraneGivenPrize = true
+            checkedCranePrizes = true
+            return
+        end
+    end
+    checkedCranePrizes = true
+end
+
 local function onCollectibleUpdate(_, EntityPickup)
 end
 
@@ -1079,6 +1172,7 @@ local function LoadRunData(_, IsContinued)
 
     flipFloorData = RightDeepMerge(flipFloorDataTable, flipFloorData)
     AssignFlipItems()
+    hourglassRewindState.flipFloorData = DeepCopy(flipFloorData)
 end
 
 local function ClearRunDataPreSave()
@@ -1105,6 +1199,8 @@ else
     ReactionAPI:AddCallback(ModCallbacks.MC_POST_EFFECT_INIT, RecordPoofPosition, EffectVariant.POOF01)
 end
 
+ReactionAPI:AddCallback(ModCallbacks.MC_POST_PICKUP_INIT, CheckForCranePrizes, PickupVariant.PICKUP_COLLECTIBLE)
+
 ReactionAPI:AddCallback(ModCallbacks.MC_POST_PICKUP_UPDATE, onCollectibleUpdate, PickupVariant.PICKUP_COLLECTIBLE)
 
 ReactionAPI:AddCallback(ModCallbacks.MC_POST_GET_COLLECTIBLE, RecordUnobtainableData)
@@ -1124,6 +1220,8 @@ ReactionAPI:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, LoadRunData)
 ReactionAPI:AddPriorityCallback(ModCallbacks.MC_PRE_GAME_EXIT, CallbackPriority.IMPORTANT, ClearRunDataPreSave)
 
 ReactionAPI:AddPriorityCallback(ModCallbacks.MC_PRE_GAME_EXIT, CallbackPriority.LATE, ClearRunDataPostSave)
+
+ReactionAPI:AddCallback(ModCallbacks.MC_PRE_USE_ITEM, function() wasFlipUsed = true end, CollectibleType.COLLECTIBLE_FLIP)
 
 ---------------------------------------------------------------------------------------------------
 ------------------------------------------FLIP FUNCTIONS-------------------------------------------
