@@ -4,7 +4,9 @@ end
 
 ReactionAPI = RegisterMod("ReactionAPI", 1)
 
-ReactionAPI.ModVersion = "1.4.2"
+ReactionAPI.ModVersion = "2.0.0"
+
+include("reactionAPI_scripts.tables.version_history")
 
 include("reactionAPI_scripts.tables.enum")
 

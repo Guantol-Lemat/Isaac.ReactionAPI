@@ -83,7 +83,28 @@ ReactionAPI.Interface.slotGetQualityStatus = ReactionAPI.GetSlotQualityStatus
 --  Calling this function anywhere else might lead to the retrieval of incorrect data
 --- @param SlotType ReactionAPI.SlotType
 --- @return table
+--- @see ReactionAPI.SlotType
 ReactionAPI.Interface.GetSlotData = ReactionAPI.GetSlotData
+
+--- This function should be called during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
+--  Calling this function anywhere else might lead to the retrieval of incorrect data
+--- @param Filter ReactionAPI.Filter @can be nil
+--- @return ReactionAPI.QualityStatus
+--- @see ReactionAPI.Filter
+--- @see ReactionAPI.QualityStatus
+ReactionAPI.Interface.flipGetBestQuality = ReactionAPI.GetFlipBestQuality
+
+--- This function should be called during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
+--  Calling this function anywhere else might lead to the retrieval of incorrect data
+--- @param Filter ReactionAPI.Filter @can be nil
+--- @return table or integer @an integer is returned if Filter is ~= nil
+--- @see ReactionAPI.Filter
+ReactionAPI.Interface.flipGetQualityStatus = ReactionAPI.GetFlipQualityStatus
+
+--- This function should be called during MC_POST_UPDATE, with a priority that is not IMPORTANT or LATE
+--  Calling this function anywhere else might lead to the retrieval of incorrect data
+--- @return table
+ReactionAPI.Interface.GetFlipData = ReactionAPI.GetFlipData
 
 --- Adds a condition, represented by a function that determines whether on that a collectible should be considered Blind
 --  The Function must return a boolean

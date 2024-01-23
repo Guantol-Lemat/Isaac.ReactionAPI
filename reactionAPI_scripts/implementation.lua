@@ -9,7 +9,7 @@ local RightDeepMerge = ReactionAPI.Utilities.RightDeepMerge
 
 -----------------------------------------------DEBUG-----------------------------------------------
 
-local DEBUG = true
+local DEBUG = false
 
 local PROFILE = false
 local updateCycle_ProfileTimeStart = Isaac.GetTime()
@@ -88,7 +88,9 @@ local lastInitializedCollectibleData = {
 local newLevelStage = LevelStage.STAGE_NULL
 local newLevelStageType = StageType.STAGETYPE_ORIGINAL
 
-local HourglassGameState = {}
+local hourglassRewindState = {}
+local hourglassPhantomRewindState = {}
+local previousHourglassUpdateType = GHManager.HourglassUpdate.New_Session
 
 local defaultRunData = {
     CraneItemData = {},
@@ -157,7 +159,10 @@ local cBestQuality = { -- API EXPOSED -- READ ONLY
         [filterNEW] = 0x00,
         [filterALL] = 0x00
     },
-    BestQuality = ReactionAPI.QualityStatus.NO_ITEMS,
+    BestQuality = {
+        [filterNEW] = ReactionAPI.QualityStatus.NO_ITEMS,
+        [filterALL] = ReactionAPI.QualityStatus.NO_ITEMS
+    },
     ItemData = {},
     InRoom = {},
     New = {}
@@ -308,6 +313,25 @@ function ReactionAPI.GetSlotData(SlotType)
         return slotData[SlotType]
     end
     return slotData
+end
+
+function ReactionAPI.GetFlipBestQuality(Filter)
+    if Filter ~= nil then
+        return flipData.BestQuality[Filter]
+    else
+        return flipData.BestQuality
+    end
+end
+
+function ReactionAPI.GetFlipQualityStatus(Filter)
+    if Filter then
+        return flipData.QualityStatus[Filter]
+    end
+    return flipData.QualityStatus
+end
+
+function ReactionAPI.GetFlipData()
+    return flipData
 end
 
 function ReactionAPI.AddBlindCondition(Function, Global)
@@ -688,6 +712,16 @@ local function SetCraneQualityStatus(CraneEntity, IsNew) -- SetQualityStatus()
     end
 end
 
+local function SetFlipQualityStatus(PedestalEntity, IsNew) -- SetQualityStatus()
+    local collectibleID = flipData.ItemData[PedestalEntity.Index]
+    if collectibleID then
+        local itemQuality = ReactionAPI.CollectibleQuality[collectibleID] or ReactionAPI.QualityStatus.GLITCHED
+        if itemQuality > ReactionAPI.QualityStatus.NO_ITEMS then
+            flipData.QualityStatus[IsNew] = flipData.QualityStatus[IsNew] | 1 << (itemQuality + 1)
+        end
+    end
+end
+
 local function SetQualityStatus() --onPostUpdate()
     -- COLLECTIBLES --
 
@@ -727,6 +761,19 @@ local function SetQualityStatus() --onPostUpdate()
             SetCraneQualityStatus(craneEntity, filterNEW)
         end
     end
+
+    -- SLOT --
+
+    flipData.QualityStatus = {
+        [filterNEW] = 0x00,
+        [filterALL] = 0x00
+    }
+    for _, pedestalEntity in pairs(flipData.InRoom) do
+        SetFlipQualityStatus(pedestalEntity, filterALL)
+        if flipData.New[pedestalEntity.Index] then
+            SetFlipQualityStatus(pedestalEntity, filterNEW)
+        end
+    end
 end
 
 local function SetAbsoluteQualityStatus() --onPostUpdate()
@@ -740,6 +787,9 @@ local function SetBestQuality() --onPostUpdate()
     cBestQuality[absolute] = math.max(cBestQuality[visible], cBestQuality[blind])
 
     slotData[Crane].BestQuality = slotData[Crane].QualityStatus[filterALL] == 0x00 and ReactionAPI.QualityStatus.NO_ITEMS or math.floor(math.log(slotData[Crane].QualityStatus[filterALL], 2)) - 1
+
+    flipData.BestQuality[filterALL] = flipData.QualityStatus[filterALL] == 0x00 and ReactionAPI.QualityStatus.NO_ITEMS or math.floor(math.log(flipData.QualityStatus[filterALL], 2)) - 1
+    flipData.BestQuality[filterNEW] = flipData.QualityStatus[filterNEW] == 0x00 and ReactionAPI.QualityStatus.NO_ITEMS or math.floor(math.log(flipData.QualityStatus[filterNEW], 2)) - 1
 end
 
 local function SetGloballyBlindTickets() --onPostUpdate()
@@ -881,7 +931,7 @@ end
 
 if PROFILE then
     Print_onCollectibleUpdate_Profile = function()
-        Isaac.DebugString("Completed ReactionAPI Update Cycle in : " .. Isaac.GetTime() - updateCycle_ProfileTimeStart .. " ms with " .. numCollectibleUpdates .. " Executions")
+        log.print("Completed ReactionAPI Update Cycle in : " .. Isaac.GetTime() - updateCycle_ProfileTimeStart .. " ms with " .. numCollectibleUpdates .. " Executions")
         updateCycle_ProfileTimeStart = Isaac.GetTime()
         numCollectibleUpdates = 0
     end
@@ -1028,7 +1078,6 @@ local function LoadRunData(_, IsContinued)
     end
 
     flipFloorData = RightDeepMerge(flipFloorDataTable, flipFloorData)
-    HourglassGameState.flipFloorData = DeepCopy(flipFloorData)
     AssignFlipItems()
 end
 
@@ -1037,7 +1086,8 @@ local function ClearRunDataPreSave()
     markFlipItemForDeletion = {}
     ClearOldFlipInitSeeds()
     flipInitSeedData = {}
-    HourglassGameState = {}
+    hourglassRewindState = {}
+    hourglassPhantomRewindState = {}
 end
 
 local function ClearRunDataPostSave()
@@ -1135,9 +1185,6 @@ local function CheckFlipGridIndexes(_, ActiveUsed)
                             flipFloorData[curRoomIndex][pedestal.InitSeed] = nil
                         else
                             flipFloorData[curRoomIndex][pedestal.InitSeed].CollectibleId = pedestal.SubType
-                            print("Updated Entry for Init Seed: " .. pedestal.InitSeed)
-                            print("Pedestal SubType: " .. pedestal.SubType)
-                            print("Pedestal Index: " .. pedestal.Index)
                         end
                     end
                 end
@@ -1217,10 +1264,12 @@ AssignFlipItems = function()
                 if not flipRoomData[pedestal.InitSeed] then
                     flipRoomData[pedestal.InitSeed] = pedestal.Index
                     flipData.InRoom[pedestal.Index] = pedestal
+                    flipData.New[pedestal.Index] = true
                 elseif pedestal.Index < flipRoomData[pedestal.InitSeed] then
                     flipData.InRoom[flipRoomData[pedestal.InitSeed]] = nil
                     flipRoomData[pedestal.InitSeed] = pedestal.Index
                     flipData.InRoom[pedestal.Index] = pedestal
+                    flipData.New[pedestal.Index] = true
                 end
                 -- This code block prevents Diplopia Items from being considered Flip Items
                 -- The item with the lowest Index is the first to have ever been spawned and
@@ -1314,26 +1363,147 @@ local function SetFlipData(_, EntityPickup)
     flipData.ItemData[EntityPickup.Index] = flipEntry.CollectibleId
 end
 
-local function OnNewHourglassGameState()
+ReactionAPI:AddCallback(ModCallbacks.MC_POST_PICKUP_UPDATE, SetFlipData, PickupVariant.PICKUP_COLLECTIBLE)
+
+---------------------------------------------------------------------------------------------------
+----------------------------------------HOURGLASS FUNCTIONS----------------------------------------
+---------------------------------------------------------------------------------------------------
+
+local function OnHourglassNewSession()
+    hourglassRewindState.flipFloorData = DeepCopy(flipFloorData)
+    hourglassPhantomRewindState = nil
+end
+
+local function OnHourglassContinuedSession()
+    hourglassRewindState.flipFloorData = DeepCopy(flipFloorData)
+    hourglassPhantomRewindState = nil
+end
+
+local function OnHourglassNewState()
     ClearMarkedFlipItems()
     markFlipItemForDeletion = {}
     ClearOldFlipInitSeeds()
     flipInitSeedData = {}
-    HourglassGameState.flipFloorData = DeepCopy(flipFloorData)
+
+    hourglassRewindState.flipFloorData = DeepCopy(flipFloorData)
+    hourglassPhantomRewindState = nil
 end
 
-local function OnRevertedHourglassGameState()
-    flipFloorData = DeepCopy(HourglassGameState.flipFloorData)
+local function OnHourglassNewWarpedState()
+    ClearMarkedFlipItems()
+    markFlipItemForDeletion = {}
+    ClearOldFlipInitSeeds()
+    flipInitSeedData = {}
+
+    if hourglassPhantomRewindState then
+        hourglassRewindState = DeepCopy(hourglassPhantomRewindState)
+    end
+    hourglassPhantomRewindState = {}
+    hourglassPhantomRewindState.flipFloorData = DeepCopy(flipFloorData)
+end
+
+local function OnHourglassRewindPrevious()
     markFlipItemForDeletion = {}
     flipInitSeedData = {}
+
+    flipFloorData = DeepCopy(hourglassRewindState.flipFloorData)
+    hourglassPhantomRewindState = nil
 end
 
-ReactionAPI:AddCallback(ModCallbacks.MC_POST_PICKUP_UPDATE, SetFlipData, PickupVariant.PICKUP_COLLECTIBLE)
+local function OnHourglassRewindCurrent()
+    markFlipItemForDeletion = {}
+    flipInitSeedData = {}
 
--- ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnNewHourglassGameState, GHManager.HourglassUpdate.New_State)
+    flipFloorData = DeepCopy(hourglassRewindState.flipFloorData)
+    hourglassPhantomRewindState = nil
+end
 
--- ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnRevertedHourglassGameState, GHManager.HourglassUpdate.Rewind_Previous_Room)
--- ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnRevertedHourglassGameState, GHManager.HourglassUpdate.Rewind_Current_Room)
+local function OnHourglassNewStage()
+    ClearMarkedFlipItems()
+    markFlipItemForDeletion = {}
+    ClearOldFlipInitSeeds()
+    flipInitSeedData = {}
+
+    if hourglassPhantomRewindState and previousHourglassUpdateType ~= GHManager.HourglassUpdate.New_Stage then
+        hourglassRewindState = DeepCopy(hourglassPhantomRewindState)
+    end
+    hourglassPhantomRewindState = {}
+    hourglassPhantomRewindState.flipFloorData = DeepCopy(flipFloorData)
+end
+
+local function OnHourglassAbsoluteStage()
+    ClearMarkedFlipItems()
+    markFlipItemForDeletion = {}
+    ClearOldFlipInitSeeds()
+    flipInitSeedData = {}
+
+    hourglassRewindState.flipFloorData = DeepCopy(flipFloorData)
+    hourglassPhantomRewindState = nil
+end
+
+local function OnHourglassStageRewindLast()
+    markFlipItemForDeletion = {}
+    flipInitSeedData = {}
+
+    flipFloorData = DeepCopy(hourglassRewindState.flipFloorData)
+    hourglassPhantomRewindState = nil
+end
+
+local function OnHourglassStageRewindPenultimate()
+    markFlipItemForDeletion = {}
+    flipInitSeedData = {}
+
+    flipFloorData = DeepCopy(hourglassRewindState.flipFloorData)
+    hourglassPhantomRewindState = nil
+end
+
+local function OnHourglassFailedStageRewind()
+    markFlipItemForDeletion = {}
+    flipInitSeedData = {}
+
+    flipFloorData = DeepCopy(hourglassRewindState.flipFloorData)
+    hourglassPhantomRewindState = nil
+end
+
+local function OnHourglassRoomClear()
+    ClearMarkedFlipItems()
+    markFlipItemForDeletion = {}
+    ClearOldFlipInitSeeds()
+    flipInitSeedData = {}
+
+    hourglassPhantomRewindState = {}
+    hourglassPhantomRewindState.flipFloorData = DeepCopy(flipFloorData)
+end
+
+local function OnHourglassCurseDoorDamage()
+    ClearMarkedFlipItems()
+    markFlipItemForDeletion = {}
+    ClearOldFlipInitSeeds()
+    flipInitSeedData = {}
+
+    hourglassPhantomRewindState = {}
+    hourglassPhantomRewindState.flipFloorData = DeepCopy(flipFloorData)
+end
+
+local function CaptureHourglassUpdateType(_, _, UpdateType)
+    previousHourglassUpdateType = UpdateType
+end
+
+ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnHourglassNewState, GHManager.HourglassUpdate.New_State)
+ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnHourglassNewWarpedState, GHManager.HourglassUpdate.New_State_Warped)
+ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnHourglassRewindPrevious, GHManager.HourglassUpdate.Rewind_Previous_Room)
+ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnHourglassRewindCurrent, GHManager.HourglassUpdate.Rewind_Current_Room)
+ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnHourglassNewSession, GHManager.HourglassUpdate.New_Session)
+ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnHourglassContinuedSession, GHManager.HourglassUpdate.Continued_Session)
+ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnHourglassNewStage, GHManager.HourglassUpdate.New_Stage)
+ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnHourglassAbsoluteStage, GHManager.HourglassUpdate.New_Absolute_Stage)
+ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnHourglassStageRewindLast, GHManager.HourglassUpdate.Previous_Stage_Last_Room)
+ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnHourglassStageRewindPenultimate, GHManager.HourglassUpdate.Previous_Stage_Penultimate_Room)
+ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnHourglassFailedStageRewind, GHManager.HourglassUpdate.Failed_Stage_Return)
+ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnHourglassRoomClear, GHManager.HourglassUpdate.Save_Pre_Room_Clear_State)
+ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, OnHourglassCurseDoorDamage, GHManager.HourglassUpdate.Save_Pre_Curse_Damage_Health)
+
+ReactionAPI:AddCallback(GHManager.Callbacks.ON_GLOWING_HOURGLASS_GAME_STATE_UPDATE, CaptureHourglassUpdateType)
 
 ---------------------------------------------------------------------------------------------------
 ----------------------------------------OVERWRITE FUNCTIONS----------------------------------------

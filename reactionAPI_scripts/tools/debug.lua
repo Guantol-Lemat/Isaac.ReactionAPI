@@ -25,6 +25,9 @@ local shopItems
 local craneBestQuality
 local craneQualityStatus
 
+local flipBestQuality
+local flipQualityStatus
+
 local visible = ReactionAPI.Visibility.VISIBLE
 local blind = ReactionAPI.Visibility.BLIND
 local absolute = ReactionAPI.Visibility.ABSOLUTE
@@ -92,6 +95,10 @@ local function FetchData()
     local craneData = ReactionAPI.GetSlotData(ReactionAPI.SlotType.CRANE_GAME)
     craneBestQuality = craneData.BestQuality
     craneQualityStatus = craneData.QualityStatus
+
+    local flipData = ReactionAPI.GetFlipData()
+    flipBestQuality = flipData.BestQuality
+    flipQualityStatus = flipData.QualityStatus
 
     dataFetched = true
 end
@@ -195,6 +202,21 @@ local function PrintCraneQualityStatus()
     IncreaseLine()
 end
 
+local function PrintFlipQualityStatus()
+    local qualityPresenceString = "FlipPresence: 0x"
+    for i = 0, 5 do
+        if flipQualityStatus[all] & (1 << i) ~= 0 then
+            qualityPresenceString = qualityPresenceString .. "1"
+        else
+            qualityPresenceString = qualityPresenceString .. "0"
+        end
+    end
+    TEXT_X = (screenCenter) - (font:GetStringWidthUTF8(qualityPresenceString) / 2)
+    font:DrawString(qualityPresenceString, TEXT_X, TEXT_Y - LINE_HEIGHT, TEXT_COLOR)
+
+    IncreaseLine()
+end
+
 local function DebugPrintPresenceList()
     Isaac.DebugString("Presence List:")
     for pickupID, _ in pairs(collectiblesInRoom) do
@@ -236,9 +258,10 @@ local function DebugText()
     ResetPrintedTextPosition()
     postRenderCalls = postRenderCalls >= 1 and 0 or postRenderCalls + 1
     if dataFetched then --To avoid Errors on Startup
-        -- PrintBestQuality() -- 2
-        PrintQualityStatus() -- 3
-        PrintCraneQualityStatus() -- 1
+        -- PrintBestQuality()
+        PrintQualityStatus()
+        PrintCraneQualityStatus()
+        PrintFlipQualityStatus()
         renderedLines = 4
         if NewCollectiblesSpawned() then
             DebugPrintPresenceList()
