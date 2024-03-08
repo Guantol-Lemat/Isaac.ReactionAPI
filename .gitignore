@@ -3,3 +3,5 @@ content
 resources
 wiki
 workshop
+*.json
+.vscode
