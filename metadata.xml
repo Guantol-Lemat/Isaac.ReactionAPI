@@ -5,7 +5,8 @@
     <id>3096181411</id>
     <description>[h1]ReactionAPI[/h1]
 
-[b][i][u]NOTE:[/u][/i][/b] This mod is an [b]API[/b], meaning that if used without another mod that makes explicit use of it, it will do nothing on it's own.
+[b][i][u]NOTE:[/u][/i][/b] This mod is an [b]API[/b].
+It has no visible impact on the game, and should only be enables when required by another mod.
 
 An [b]API[/b] that greatly eases the creation of 'Reaction to Quality Items' Mods.
 
@@ -27,7 +28,7 @@ Additionally the mod keeps track of all the Item Pedestals present within the cu
 Visit the [url=https://github.com/Guantol-Lemat/Isaac.ReactionAPI]Github repository[/url] for more info on how to implement the API within your mod.
 
 This mod also has built-in compatibility with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2724039000]Cursed Collection[/url] treating Items during Curse of the Blight as Blind items.</description>
-    <version>1.2.1</version>
+    <version>2.0.1</version>
     <visibility>Public</visibility>
     <tag id="Lua"/>
     <tag id="Items"/>
